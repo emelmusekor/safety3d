@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>안전 길잡이 선생님</title>
+<style>
+:root{--bg:#f4f1ea;--panel:#ffffff;--ink:#14202b;--sub:#5b6777;--accent:#f08c00;--good:#1f9d55;--bad:#d64545;--line:#e2ddd2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1720;--panel:#18202a;--ink:#eef3f7;--sub:#a9b6c2;--line:#33404d}}
+:root[data-theme="dark"]{--bg:#0f1720;--panel:#18202a;--ink:#eef3f7;--sub:#a9b6c2;--line:#33404d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:24px;margin:0 0 4px}.sub{color:var(--sub);margin:0 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:2px solid var(--line);background:transparent;color:var(--ink);min-width:0}
+button{font:inherit;font-size:15px;font-weight:700;padding:10px 14px;border-radius:10px;border:0;background:var(--line);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);color:#fff}button.danger{background:transparent;border:2px solid var(--bad);color:var(--bad)}
+.msg{font-size:14px;color:var(--sub);margin-top:8px;min-height:18px}.msg.err{color:var(--bad);font-weight:700}.msg.ok{color:var(--good);font-weight:700}
+.big{font-size:30px;font-weight:800;letter-spacing:.12em;color:var(--accent)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+.stat{flex:1 1 140px;border:1px solid var(--line);border-radius:12px;padding:10px 12px}.stat b{display:block;font-size:24px}.stat span{font-size:13px;color:var(--sub)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:760px}
+th,td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:13px;color:var(--sub);font-weight:700}
+td.num{font-variant-numeric:tabular-nums}
+.tag{display:inline-block;border-radius:8px;padding:2px 7px;font-size:12px;margin:1px 2px 1px 0;background:rgba(214,69,69,.12);color:var(--bad)}
+.done{color:var(--good);font-weight:700}.idle{color:var(--sub)}
+.mist li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>현장체험 안전 길잡이 · 선생님 화면</h1>
+  <p class="sub">반을 만들고, 학생들이 게임을 하는 동안 진행 상황과 안전 점수를 봐요. (학생 진짜 이름은 받지 않고 번호·별명만 써요)</p>
+
+  <section class="card" id="cfgWarn" hidden><h2>서버 주소가 비어 있어요</h2><div>net-config.js 의 endpoint 에 Apps Script 웹 앱 주소를 넣어야 반 만들기와 기록 보기가 돼요. 함께 하기(친구 만나기)는 서버 없이도 돼요.</div></section>
+
+  <section class="card">
+    <h2>① 새 반 만들기</h2>
+    <div class="row"><input id="cName" maxlength="20" placeholder="반 이름 (예: 정각초 5학년 3반)" style="flex:1;min-width:200px"><input id="cPin" type="password" inputmode="numeric" maxlength="8" placeholder="선생님 PIN (숫자 6~8자리)" style="width:220px"><button class="main" id="bCreate">반 만들기</button></div>
+    <div class="msg" id="cMsg"></div>
+  </section>
+
+  <section class="card">
+    <h2>② 우리 반 기록 보기</h2>
+    <div class="row"><input id="dCode" maxlength="5" placeholder="반 코드" style="width:120px;text-transform:uppercase"><input id="dPin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN" style="width:160px"><button class="main" id="bLoad">보기</button><button id="bOpen" hidden></button><button class="danger" id="bDel" hidden>반 지우기</button></div>
+    <div class="msg" id="dMsg"></div>
+    <div id="dash" hidden>
+      <div class="stats" id="stats"></div>
+      <div class="tbl"><table><thead><tr><th>번호</th><th>별명</th><th>지금 있는 곳</th><th>지금 할 일</th><th>안전 점수</th><th>퀴즈</th><th>하이파이브</th><th>실수한 것</th><th>마지막</th></tr></thead><tbody id="tb"></tbody></table></div>
+      <h2 style="margin-top:16px">반 전체가 많이 놓친 안전 수칙</h2><ol class="mist" id="mist"></ol>
+    </div>
+  </section>
+</main>
+<script src="net-config.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const Q=new URLSearchParams(location.search);
+const DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)||location.protocol==='file:';
+let EP=String((window.SAFE_NET||{}).endpoint||'');if(DEV&&Q.get('ep'))EP=Q.get('ep');
+if(!EP)$('cfgWarn').hidden=false;
+const LESSON={red:'보행 신호 지키기',jay:'횡단보도로 건너기',car:'차 살피고 건너기',run:'뛰지 않고 걷기',esc:'에스컬레이터에서 걷지 않기',psd:'스크린도어에 기대지 않기',
+  line:'안전선 뒤에서 기다리기',first:'내리는 사람 먼저',door:'닫히는 문에 뛰어들지 않기',miss:'내릴 역 확인하기',bike:'자전거 살피기',drive:'차량 출입구 경고등 보고 멈추기'};
+function post(b){if(!EP)return Promise.resolve({ok:false,msg:'서버 주소가 비어 있어요.'});
+  return fetch(EP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b),redirect:'follow'}).then(r=>r.json()).catch(()=>({ok:false,msg:'인터넷 연결을 확인해 주세요.'}));}
+function say(el,t,cls){el.textContent=t;el.className='msg '+(cls||'');}
+$('bCreate').onclick=async()=>{const name=$('cName').value.trim(),pin=$('cPin').value.trim();
+  if(!name){say($('cMsg'),'반 이름을 적어 주세요.','err');return;}if(!/^\d{6,8}$/.test(pin)){say($('cMsg'),'PIN은 숫자 6~8자리예요.','err');return;}
+  say($('cMsg'),'만드는 중…');const r=await post({action:'createClass',name,pin});
+  if(!r.ok){say($('cMsg'),r.msg||'만들지 못했어요.','err');return;}
+  $('cMsg').innerHTML='';const d=document.createElement('div');d.className='msg ok';d.textContent='반을 만들었어요. 학생들에게 이 반 코드를 알려 주세요:';const c=document.createElement('div');c.className='big';c.textContent=r.code;$('cMsg').append(d,c);
+  $('dCode').value=r.code;$('dPin').value=pin;load();};
+let timer=null,cur=null;
+function ago(t){if(!t)return '-';const s=Math.round((Date.now()-t)/1000);return s<60?s+'초 전':s<3600?Math.round(s/60)+'분 전':Math.round(s/3600)+'시간 전';}
+async function load(quiet){
+  const code=$('dCode').value.trim().toUpperCase(),pin=$('dPin').value.trim();
+  if(!/^[A-Z0-9]{5}$/.test(code)||!pin){say($('dMsg'),'반 코드와 PIN을 적어 주세요.','err');return;}
+  if(!quiet)say($('dMsg'),'불러오는 중…');
+  const r=await post({action:'dashboard',code,pin});
+  if(!r.ok){say($('dMsg'),r.msg||'불러오지 못했어요.','err');clearInterval(timer);timer=null;return;}
+  cur={code,pin,open:r.cls.open};
+  say($('dMsg'),`${r.cls.name} (${r.cls.code}) · ${r.cls.open?'참여 열림':'참여 닫힘'} · 15초마다 새로 고쳐요`,'ok');
+  $('bOpen').hidden=false;$('bOpen').textContent=r.cls.open?'참여 닫기':'참여 열기';$('bDel').hidden=false;$('dash').hidden=false;
+  const st=r.students||[],now=Date.now();
+  const playing=st.filter(s=>!s.done&&now-s.last<5*60000).length,done=st.filter(s=>s.done).length;
+  const avg=st.length?Math.round(st.reduce((a,s)=>a+s.score,0)/st.length):0;
+  $('stats').innerHTML='';[[st.length,'들어온 학생'],[playing,'지금 하는 중'],[done,'CGV 도착'],[avg,'평균 안전 점수']].forEach(([v,l])=>{const d=document.createElement('div');d.className='stat';const b=document.createElement('b');b.textContent=v;const sp=document.createElement('span');sp.textContent=l;d.append(b,sp);$('stats').appendChild(d);});
+  const tb=$('tb');tb.textContent='';const tot={};
+  st.forEach(s=>{const tr=document.createElement('tr');
+    const cells=[s.num,s.nick,s.done?'🎬 CGV 도착':s.where,s.done?'-':s.stepText,s.score,`${s.quiz}/${s.quizN}`,s.hf||0,'',ago(s.last)];
+    cells.forEach((v,i)=>{const td=document.createElement('td');if(i===0||i===4||i===5||i===6)td.className='num';
+      if(i===7){Object.keys(s.miss||{}).forEach(k=>{tot[k]=(tot[k]||0)+s.miss[k];const t=document.createElement('span');t.className='tag';t.textContent=(LESSON[k]||k)+(s.miss[k]>1?' ×'+s.miss[k]:'');td.appendChild(t);});}
+      else td.textContent=v;
+      if(i===2&&s.done)td.className='done';if(i===8&&now-s.last>5*60000)td.className='idle';tr.appendChild(td);});
+    tb.appendChild(tr);});
+  if(!st.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=9;td.textContent='아직 들어온 학생이 없어요. 학생 기록은 1분 안에 나타나요.';tr.appendChild(td);tb.appendChild(tr);}
+  const ml=$('mist');ml.textContent='';const ks=Object.keys(tot).sort((a,b)=>tot[b]-tot[a]);
+  if(!ks.length){const li=document.createElement('li');li.textContent='아직 없어요.';ml.appendChild(li);}
+  ks.forEach(k=>{const li=document.createElement('li');li.textContent=`${LESSON[k]||k} — ${tot[k]}번`;ml.appendChild(li);});
+  if(!timer)timer=setInterval(()=>load(true),15000);
+}
+$('bLoad').onclick=()=>{clearInterval(timer);timer=null;load();};
+$('bOpen').onclick=async()=>{if(!cur)return;const r=await post({action:'setOpen',code:cur.code,pin:cur.pin,open:!cur.open});if(r.ok)load(true);else say($('dMsg'),r.msg||'바꾸지 못했어요.','err');};
+$('bDel').onclick=async()=>{if(!cur)return;if($('bDel').dataset.sure!==cur.code){$('bDel').dataset.sure=cur.code;$('bDel').textContent='정말 지울까요? 한 번 더 누르면 지워져요';return;}
+  const r=await post({action:'deleteClass',code:cur.code,pin:cur.pin});$('bDel').dataset.sure='';$('bDel').textContent='반 지우기';
+  if(r.ok){clearInterval(timer);timer=null;$('dash').hidden=true;$('bOpen').hidden=true;$('bDel').hidden=true;say($('dMsg'),'반과 기록을 지웠어요.','ok');}else say($('dMsg'),r.msg||'지우지 못했어요.','err');};
+</script>
+</body>
+</html>
