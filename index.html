@@ -123,6 +123,23 @@ details{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.65}details
 .conf{position:fixed;top:-20px;width:10px;height:14px;border-radius:2px;pointer-events:none;z-index:15;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 @media (max-width:640px){#goal{width:calc(100% - 150px)}#goal .txt{font-size:16px}#goal .ic{display:none}.panel h1{font-size:27px}#rail .n{min-width:48px}#rail .t{font-size:10px}#rail .l{width:12px}}
+@media (max-width:640px),(max-height:500px){
+ #start{padding:12px;justify-content:center;align-items:flex-start;background:rgba(10,22,36,.45)}
+ .panel{padding:18px 16px}.panel h1{font-size:25px}
+ .route{overflow-x:auto;padding-bottom:4px}.route .rs{min-width:58px;font-size:10.5px}
+ .join #jCode{width:100px}.join #jNum{width:68px}.join #jNick{flex:1 1 100%}
+ #goal{width:calc(100% - 24px);left:12px;top:12px;padding:9px 11px;gap:8px}#goal .ic{display:none}#goal .txt{font-size:15.5px}#goal .loc{display:none}#goal .bar{margin-top:6px}
+ #stat{top:96px;right:12px;padding:4px;gap:3px}#stat .pill{padding:3px 7px;font-size:12.5px}
+ #tools{top:140px;right:12px;gap:6px}#tools button{width:38px;height:38px;font-size:16px}
+ #rail,.touch #rail{top:96px;bottom:auto;left:12px;transform:none;padding:5px 8px}
+ #rail .t{display:none}#rail .n{min-width:28px}#rail .d{width:26px;height:26px;font-size:13px}#rail .l{width:10px;margin-bottom:0}
+ #mpChip{top:140px}#mpList{top:182px}
+ #emoBar{right:12px;bottom:12px}#emoBar button{width:32px;height:32px;font-size:17px}
+ #hint{bottom:120px;font-size:14px}
+ #linemap{top:140px;bottom:auto;left:12px;transform:none;font-size:11px;padding:6px 10px;max-width:calc(100% - 76px);overflow:hidden}
+ #modal .msg{font-size:16px}#modal button{font-size:15px;padding:10px 12px}
+}
+@media (max-height:500px){#goal{width:calc(100% - 200px)}#stat{top:14px}#tools{top:60px}#rail,.touch #rail{top:auto;bottom:12px;left:50%;transform:translateX(-50%)}.touch #rail{display:none}#linemap{display:none!important}.touch #emoBar{flex-direction:row;top:auto;bottom:14px;right:124px;width:auto;border-radius:999px}}
 </style>
 </head>
 <body class="pre">
@@ -763,7 +780,8 @@ function updCamera(dt){
   if(W.dome){W.dome.position.copy(camera.position);}
   shadowFollow(P.x,P.y,P.z);
   if(W.sky!=null){const under=camera.position.y<0.3&&P.y<-0.4;if(under!==W.under){W.under=under;indoorLight(under);scene.background.setHex(under?0x14171b:W.sky);if(W.dome)W.dome.visible=!under;}}
-  FR.forEach(f=>{f.visible=!MP.active()&&f.position.distanceTo(camera.position)>1.7;});
+  {const c=camera.position,dx=P.x-c.x,dz=P.z-c.z,L=Math.hypot(dx,dz)||1;FR.forEach(f=>{const fx=f.position.x-c.x,fz=f.position.z-c.z,along=(fx*dx+fz*dz)/L,side=Math.abs(fx*dz-fz*dx)/L;
+    f.visible=!MP.active()&&Math.hypot(fx,fz)>1.4&&!(along>0&&along<L-0.4&&side<0.55);});}
 }
 
 /* ---------- 단계(할 일) ---------- */
