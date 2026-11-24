@@ -968,14 +968,14 @@ function buildStation(o){
     deco(gx-0.74,Y1+0.55,cz,0.02,0.25,0.3,MB(0x7cff8a));}
   box(gx,Y1,(-18-12.3)/2,0.1,1.15,5.7,GLASS);box(gx,Y1,(-5.3+4)/2,0.1,1.15,9.3,GLASS);
   deco(gx,Y1+1.1,(-18-12.3)/2,0.12,0.06,5.7,0x9aa5b0);deco(gx,Y1+1.1,(-5.3+4)/2,0.12,0.06,9.3,0x9aa5b0);
-  const flaps=lanes.map(lz=>{const m=box(gx,Y1+0.35,lz,0.06,0.6,0.95,0xe64a19);return {lz,m,until:0};});
+  const FLAPM=new THREE.MeshLambertMaterial({color:0xff6a3d,transparent:true,opacity:.55});const flaps=lanes.map(lz=>{const m=box(gx,Y1+0.45,lz,0.04,0.5,0.92,FLAPM);return {lz,m,until:0};});
   W.upd.push(()=>{for(const f of flaps){const open=G.t<f.until;f.m.visible=!open;f.m.userData.col.on=!open;}});
   const tapped={in:false,out:false};
   flaps.forEach(f=>{
     W.acts.push({x:gx-1.0,y:Y1,z:f.lz,r:1.0,label:'교통카드 찍기',cond:()=>P.x<gx,fn:()=>{f.until=G.t+3.2;sfx('card');toast('삑! 교통카드를 찍었어요. 한 명씩 차례로 지나가요.','good');tapped.in=true;fire('tapIn');}});
     W.acts.push({x:gx+1.0,y:Y1,z:f.lz,r:1.0,label:'교통카드 찍기',cond:()=>P.x>gx,fn:()=>{f.until=G.t+3.2;sfx('card');toast('삑! 나갈 때도 카드를 찍어요.','good');tapped.out=true;fire('tapOut');}});
   });
-  sign('교통카드를 찍고 들어가세요',gx,Y1+2.35,-8.8,-Math.PI/2,3.6,0.5,'#14324f','#fff',{two:true});
+  sign(o.gateText||'교통카드를 찍고 들어가세요',gx,Y1+2.35,-8.8,-Math.PI/2,3.6,0.5,'#14324f','#fff',{two:true});
   // 고객안내센터·발매기·노선도
   box(gx-4,Y1,-16.4,4,1.1,2.2,0xc2c9d0);deco(gx-4,Y1+1.1,-16.4,4,1.3,0.06,GLASS2);sign('고객안내센터',gx-4,Y1+2.6,-15.25,0,3,0.5,'#14324f','#fff');
   for(let i=0;i<3;i++){box(ox+2.2+i*1.3,Y1,-17.5,1.0,1.7,0.6,0x3d5a80);deco(ox+2.2+i*1.3,Y1+0.9,-17.19,0.6,0.45,0.02,MB(0x9fd8ff));}
@@ -1379,7 +1379,7 @@ function worldRide(){
 /* ================= 3장: 시민공원역 → 아인애비뉴 B2 CGV ================= */
 function worldC(){
   newWorld();G.world='C';scene.fog=null;enableShadows(false);scene.background=new THREE.Color(0x0a0c10);W.camPitch=0.24;indoorLight(true);
-  const st=buildStation({ox:0,westOpen:[[-17,-14],[0.5,3.5]],name:'시민공원',en:'Citizens Park',code:'I219',lineHint:'석바위시장 ─ 시민공원 ─ 주안',
+  const st=buildStation({ox:0,gateText:'교통카드를 찍고 나가세요',westOpen:[[-17,-14],[0.5,3.5]],name:'시민공원',en:'Citizens Park',code:'I219',lineHint:'석바위시장 ─ 시민공원 ─ 주안',
     dirN:['주안 · 검단오류 방면','주안 · 주안국가산단 · 가정 · 검단오류'],dirS:['석바위시장 · 운연 방면','석바위시장 · 인천시청 · 운연'],
     nextN:'주안',prevN:'석바위시장',prevS:'주안',nextS:'석바위시장',escN:'up',escS:'down'});
   const Y1=-6,Y2=-12,gx=st.gx;
@@ -1758,11 +1758,19 @@ function tick(dt){
 }
 function frame(){MP.update();updHint();updCamera(0.016);renderer.render(scene,camera);
   if(AUTO){let d=$('autodbg');if(!d){d=document.createElement('div');d.id='autodbg';d.style.cssText='position:fixed;left:0;bottom:0;background:#000;color:#0f0;font:16px monospace;padding:4px;z-index:99';document.body.appendChild(d);}d.textContent=document.title+' | world='+G.world+' si='+si+' t='+G.t.toFixed(1)+' P='+P.x.toFixed(1)+','+P.y.toFixed(1)+','+P.z.toFixed(1)+' paused='+G.paused;}}
+const AQ={t:0,n:0,lvl:0};
+function autoQuality(raw){if(AUTO||Q.has('low')||raw>1)return;AQ.t+=raw;AQ.n++;if(AQ.t<3)return;const fps=AQ.n/AQ.t;AQ.t=0;AQ.n=0;
+  if(fps<30&&AQ.lvl<2){AQ.lvl++;
+    if(AQ.lvl===1){renderer.setPixelRatio(1.25);sun.shadow.mapSize.set(2048,2048);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
+    else{renderer.setPixelRatio(1);renderer.shadowMap.enabled=false;sun.castShadow=false;if(W)W.shadow=false;scene.traverse(o=>{if(o.material&&!Array.isArray(o.material))o.material.needsUpdate=true;});}
+    renderer.setSize(innerWidth,innerHeight);console.log('[화질 자동 조절]',AQ.lvl,fps.toFixed(0));}}
 function loop(now){
   requestAnimationFrame(loop);
-  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  const raw=(now-last)/1000;last=now;
   if(!W){renderer.render(scene,camera);return;}
-  if(!AUTO)tick(dt);
+  // 화면이 느려도 게임 속 시간은 제 속도로: 0.05초씩 나눠서 진행 (최대 0.15초)
+  if(!AUTO){let rem=Math.min(raw,0.15);while(rem>0.0001){const st=Math.min(rem,0.05);tick(st);rem-=st;}}
+  autoQuality(raw);
   frame();
 }
 requestAnimationFrame(loop);
