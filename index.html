@@ -241,6 +241,7 @@ function TM(k,w,d,size,o={}){const t=baseTex(k).clone();t.needsUpdate=true;t.rep
 const G={score:100,quiz:0,quizN:0,log:{},paused:false,world:null,guide:true,sound:true,t:0,cool:{},camFar:false,stage:0,ended:false};
 let W=null;
 function newWorld(){
+  if(typeof P!=='undefined'&&P.sit){P.sit=null;P.mesh.userData.arms.forEach(a=>a.rotation.x=0);}
   if(W&&W.g){scene.remove(W.g);W.g.traverse(o=>{if(o.geometry)o.geometry.dispose();for(const mt of [].concat(o.material||[])){if(mt&&mt.map&&mt.map.isTexture){mt.map.dispose();mt.dispose();}}});}
   W={g:new THREE.Group(),col:[],fl:[],belts:[],zones:[],upd:[],cam:[],acts:[],loc:()=>''};
   scene.add(W.g);
@@ -638,7 +639,7 @@ const LESSON={
   red:'보행 신호가 초록불일 때만 건너요. 깜빡이면 다음 신호를 기다려요.',jay:'길은 꼭 횡단보도로 건너요.',car:'차가 오는지 좌우를 살피고, 차가 멈춘 것을 확인한 뒤 건너요.',
   run:'길과 역, 상가 안에서는 뛰지 않고 걸어요.',esc:'에스컬레이터에서는 걷거나 뛰지 말고 손잡이를 잡아요.',psd:'스크린도어에 기대거나 두드리지 않아요.',
   line:'열차가 들어올 때는 안전선 뒤에서 기다려요.',first:'열차에서 내리는 사람이 다 내린 뒤에 타요.',door:'닫히는 문에 뛰어들지 않고 다음 열차를 기다려요.',
-  miss:'안내 방송과 노선도를 보며 내릴 역을 확인해요.',drive:'차량 출입구에서는 경고등과 차를 살피고, 차가 지나간 뒤 건너요.',bike:'인도에서도 자전거·킥보드를 살피고 오른쪽으로 비켜요.'};
+  miss:'안내 방송과 노선도를 보며 내릴 역을 확인해요.',pri:'교통약자석은 필요한 분들을 위해 비워 두어요.',drive:'차량 출입구에서는 경고등과 차를 살피고, 차가 지나간 뒤 건너요.',bike:'인도에서도 자전거·킥보드를 살피고 오른쪽으로 비켜요.'};
 function warn(key,msg,pts){if((G.cool[key]||0)>G.t)return false;G.cool[key]=G.t+5;G.score=Math.max(0,G.score-pts);G.log[key]=(G.log[key]||0)+1;
   toast('⚠ '+msg+'  (−'+pts+')','bad',3400);sfx('bad');updHud();try{NET.progress();}catch(e){}
   if(G.score<=0&&!G.ended)setTimeout(()=>gameOver(key,'안전 점수가 0점이 되었어요','위험한 행동을 여러 번 했어요. '+(LESSON[key]||'')),600);return true;}
@@ -719,6 +720,9 @@ const keys={};let joy={x:0,y:0};
 function inputVec(){let ix=0,iz=0;if(keys.KeyW||keys.ArrowUp)iz+=1;if(keys.KeyS||keys.ArrowDown)iz-=1;if(keys.KeyA)ix-=1;if(keys.KeyD)ix+=1;ix+=joy.x;iz+=joy.y;
   const l=Math.hypot(ix,iz);if(l>1){ix/=l;iz/=l;}return [ix,iz,Math.min(1,l)];}
 function movePlayer(dt){
+  if(P.sit){const st=P.sit;P.x=st.x;P.z=st.z;P.y=0;P.yaw=st.yaw;P.spd=0;P.mesh.position.set(st.x,st.my,st.mz);P.mesh.rotation.y=st.yaw;
+    const u=P.mesh.userData;u.legs.forEach(l=>l.rotation.x=-1.45);u.arms.forEach(a=>{a.rotation.x=-0.35;a.rotation.z=0;});if(u.inner){u.inner.position.y=0;u.inner.rotation.y=0;}
+    if(inputVec()[2]>0.5&&(G.cool.sitHint||0)<G.t){G.cool.sitHint=G.t+4;toast('앉아 있어요. 일어나려면 E(행동 버튼)를 눌러요.');}return;}
   const [ix,iz,il]=inputVec();const run=(keys.ShiftLeft||keys.ShiftRight)&&il>0.1;
   const spd=(run?6.2:3.3)*il;const fx=Math.sin(cam.yaw),fz=Math.cos(cam.yaw),rx=-Math.cos(cam.yaw),rz=Math.sin(cam.yaw);
   let vx=(fx*iz+rx*ix),vz=(fz*iz+rz*ix);const vl=Math.hypot(vx,vz);if(vl>0.01){vx=vx/vl*spd;vz=vz/vl*spd;}
@@ -746,7 +750,7 @@ function shadowFollow(x,y,z){const on=!!W.shadow&&y>-0.5;if(sun.castShadow!==on)
 function updCamera(dt){
   if(G.preview){const t=performance.now()/1000*0.07,a=Math.PI+Math.sin(t)*0.55;camera.position.set(8+Math.sin(a)*24,6.5+Math.sin(t*0.7),4+Math.cos(a)*24);camera.lookAt(8,1.8,5);
     if(W.dome)W.dome.position.copy(camera.position);shadowFollow(8,0,5);return;}
-  const pit=W.camPitch!=null?Math.min(cam.pitch,W.camPitch):cam.pitch;
+  const pit=W.camPitch!=null?(W.ride?W.camPitch:Math.min(cam.pitch,W.camPitch)):cam.pitch;
   const dist=(G.camFar?8.5:cam.dist)*(W.camScale||1),cp=Math.cos(pit),sp=Math.sin(pit);
   tmpH.set(P.x,P.y+1.25,P.z);
   tmpV.set(P.x-Math.sin(cam.yaw)*dist*cp,P.y+1.25+dist*sp,P.z-Math.cos(cam.yaw)*dist*cp);
@@ -1133,7 +1137,8 @@ function worldA(){
 function worldRide(){
   newWorld();G.world='ride';scene.fog=null;enableShadows(false);scene.background=new THREE.Color(0x07090c);indoorLight(true);sun.intensity=0.6;
   const L=18,H=2.25,doors=[-14,-4,4,14],STN=[{n:'석천사거리',e:'Seokcheon Sageori',c:'I222'},{n:'인천시청',e:'Incheon City Hall',c:'I221'},{n:'석바위시장',e:'Seokbawi Market',c:'I220'},{n:'시민공원',e:'Citizens Park',c:'I219'}],TG=3;
-  floor(-L,-1.35,L,1.36,0,0xb8bcc1);decoCam(0,H,0,2*L,0.1,3,0xeceff1);W.camScale=0.62;W.camPitch=0.22;
+  floor(-L,-1.35,L,1.36,0,TM('asphalt',2*L,2.7,1.2,{color:0xd8dde2}));for(const d of doors)for(const sz of [-1,1]){deco(d,0.005,sz*1.18,1.5,0.012,0.22,0xffd21f);}
+  for(const sz of [-0.62,0.62])deco(0,H-0.02,sz,2*L-0.6,0.03,0.16,MB(0xfdfdf5));decoCam(0,H,0,2*L,0.1,3,0xeceff1);W.camScale=0.66;W.camPitch=0.25;W.ride=true;
   for(let x=-16;x<17;x+=4)deco(x,H-0.03,0,2.4,0.04,0.35,MB(0xfffdf0));
   wallX(1.5,-L,L,doors.map(d=>[d-0.72,d+0.72]),0,H,0xeef0f2);wallX(-1.5,-L,L,[],0,H,0xeef0f2);
   box(-L-0.15,0,0,0.3,H,3.3,0xdfe3e6);
@@ -1147,6 +1152,16 @@ function worldRide(){
     deco((a+b)/2,0.95,s*1.36,b-a-0.4,0.8,0.03,DARKWIN);}
     if(pri){sign('교통약자석',(a+b)/2,1.95,1.33,Math.PI,1.6,0.3,'#f2b134','#1b1206');sign('교통약자석',(a+b)/2,1.95,-1.33,0,1.6,0.3,'#f2b134','#1b1206');}});
   trainAds(segs);
+  segs.forEach(([a,b],i)=>{for(const s of [-1,1])for(const e of [a,b]){if(Math.abs(e)>17.5)continue;box(e+(e===a?0.04:-0.04),0,s*1.05,0.05,1.3,0.62,GLASS);deco(e+(e===a?0.04:-0.04),1.3,s*1.05,0.07,0.06,0.64,M(0xc0c6cc));}});
+  sign('♿ 휠체어·유모차 공간',16.3,1.6,-1.33,0,1.6,0.32,'#1e63b8','#fff');
+  // 앉기: 빈자리 앞에서 E
+  const taken=[[-9,-1],[-7.5,1],[8,-1],[10.5,1],[-1.5,-1]];
+  segs.forEach(([a,b],i)=>{const pri=i===0||i===4;for(const s of [-1,1])for(let x=a+0.35;x<b-0.25;x+=0.62){
+    if(taken.some(([tx,ts])=>ts===s&&Math.abs(tx-x)<0.45))continue;if(s<0&&x>14.9)continue;
+    W.acts.push({x,y:0,z:s*0.55,r:0.5,label:pri?'교통약자석이에요 (앉지 않아요)':'빈자리에 앉기',cond:()=>!P.sit,fn:()=>{
+      if(pri){warn('pri','교통약자석은 몸이 불편한 분들을 위해 비워 두어요',2);return;}
+      P.sit={x,z:s*0.8,yaw:s>0?Math.PI:0,my:-0.18,mz:s*1.02};cam.yaw=P.sit.yaw+Math.PI*0.62;sfx('pop');toast('🪑 자리에 앉았어요. 내릴 역이 가까워지면 미리 일어나요!','good');}});}});
+  W.acts.push({x:0,y:0,z:0,r:99,label:'일어나기',cond:()=>!!P.sit,fn:()=>{const st=P.sit;P.sit=null;P.mesh.userData.arms.forEach(a=>a.rotation.x=0);setPos(st.x,0,st.z*0.65,st.yaw);toast('일어났어요. 손잡이를 잡아요.');}});
   for(const d of doors){for(const s of [-1,1]){box(d-0.95,0,s*0.95,0.08,H,0.08,0xc0c6cc);box(d+0.95,0,s*0.95,0.08,H,0.08,0xc0c6cc);}
     deco(d-0.34,0,-1.42,0.68,2.05,0.04,0xcfd5db);deco(d+0.34,0,-1.42,0.68,2.05,0.04,0xcfd5db);}
   for(const z of [-0.75,0.75]){deco(0,1.98,z,2*L-1,0.04,0.04,0xb0b7be);for(let x=-16.5;x<17;x+=1.1){deco(x,1.7,z,0.04,0.28,0.03,0x22a7b8);deco(x,1.6,z,0.16,0.12,0.04,0x22a7b8);}}
@@ -1207,7 +1222,7 @@ function worldRide(){
         toast(`📢 이번 역은 ${s.n}역입니다.${ex}`,'ann',4200);speak(`이번 역은 ${s.n}역입니다.${ex}`);setLed(`이번 역은 ${s.n}`);setStation(s);}
       if(RS.t>5){stG.visible=true;rWall.visible=false;const k=Math.min(1,(RS.t-5)/3);stG.position.x=70*Math.pow(1-k,2);}
       if(RS.t>=8){RS.ph='stop';RS.t=0;stG.position.x=0;openD(true);sfx('chime');drawMap();
-        if(RS.i===TG){toast('📢 시민공원역입니다. 내리실 문은 오른쪽입니다.','ann',4200);speak('시민공원역입니다. 내리실 문은 오른쪽입니다.');fire('arrive');}}
+        if(RS.i===TG){if(P.sit)setTimeout(()=>toast('🪑 앉아 있다면 E를 눌러 일어나서 내려요!','',3600),900);toast('📢 시민공원역입니다. 내리실 문은 오른쪽입니다.','ann',4200);speak('시민공원역입니다. 내리실 문은 오른쪽입니다.');fire('arrive');}}
     }else if(RS.ph==='stop'){
       if(inGap()&&P.z>1.9&&!RS.exited){if(RS.i===TG){RS.exited=true;fire('exit');sfx('good');fade(()=>{$('linemap').style.display='none';worldC();});}
         else{RS.exited=true;RS.ph='over';openD(false);gameOver('miss',`${STN[RS.i].n}역에서 내렸어요`,`우리가 내릴 역은 시민공원역이에요. ${STN[RS.i].n}역에서 ${TG-RS.i}정거장 더 가야 했어요.\n노선도와 안내 방송으로 몇 번째 역인지 세어 봐요.`);}}

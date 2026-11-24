@@ -36,7 +36,7 @@ var MAX_CLASSES = 300, MAX_NUM = 40, MAX_STUDENT_ROWS = 12000, CLASS_IDLE_DAYS =
 var BUF_TTL = 21600;          // 캐시에 담아 두는 시간(6시간)
 var GLOBAL_PER_MIN = 1200;    // 서버 전체 1분 상한
 var WORLDS = { A: '학교→모래내시장역', ride: '열차 안', C: '시민공원역→CGV' };
-var LESSON_KEYS = { red: 1, jay: 1, car: 1, run: 1, esc: 1, psd: 1, line: 1, first: 1, door: 1, miss: 1, bike: 1, drive: 1 };
+var LESSON_KEYS = { pri: 1, red: 1, jay: 1, car: 1, run: 1, esc: 1, psd: 1, line: 1, first: 1, door: 1, miss: 1, bike: 1, drive: 1 };
 
 // ---------------------------------------------------------------- 설치
 

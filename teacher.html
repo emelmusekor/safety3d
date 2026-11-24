@@ -71,7 +71,7 @@ const DEV=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)||location
 let EP=String((window.SAFE_NET||{}).endpoint||'');if(DEV&&Q.get('ep'))EP=Q.get('ep');
 if(!EP)$('cfgWarn').hidden=false;
 const LESSON={red:'보행 신호 지키기',jay:'횡단보도로 건너기',car:'차 살피고 건너기',run:'뛰지 않고 걷기',esc:'에스컬레이터에서 걷지 않기',psd:'스크린도어에 기대지 않기',
-  line:'안전선 뒤에서 기다리기',first:'내리는 사람 먼저',door:'닫히는 문에 뛰어들지 않기',miss:'내릴 역 확인하기',bike:'자전거 살피기',drive:'차량 출입구 경고등 보고 멈추기'};
+  line:'안전선 뒤에서 기다리기',first:'내리는 사람 먼저',door:'닫히는 문에 뛰어들지 않기',miss:'내릴 역 확인하기',bike:'자전거 살피기',drive:'차량 출입구 경고등 보고 멈추기',pri:'교통약자석 비워 두기'};
 function post(b){if(!EP)return Promise.resolve({ok:false,msg:'서버 주소가 비어 있어요.'});
   return fetch(EP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b),redirect:'follow'}).then(r=>r.json()).catch(()=>({ok:false,msg:'인터넷 연결을 확인해 주세요.'}));}
 function say(el,t,cls){el.textContent=t;el.className='msg '+(cls||'');}
