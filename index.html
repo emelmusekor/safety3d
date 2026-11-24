@@ -74,7 +74,7 @@ body.pre .hud{display:none!important}
 #modal .exp.yes{color:#11653a;background:rgba(24,160,88,.1);padding:10px 12px;border-radius:12px}#modal .exp.no{color:#a32b2f;background:rgba(229,72,77,.08);padding:10px 12px;border-radius:12px}
 /* 시작·끝 */
 #start,#end{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:24px 4vw;overflow:auto;background:linear-gradient(90deg,rgba(10,22,36,.78) 0%,rgba(10,22,36,.35) 45%,rgba(10,22,36,0) 70%)}
-#end{display:none;justify-content:center;background:rgba(8,18,30,.55)}
+#end{display:none;justify-content:center;background:rgba(8,18,30,.55);z-index:12}
 .panel{width:min(560px,100%);padding:26px 26px 22px;max-height:calc(100% - 8px);overflow:auto;background:rgba(255,255,255,.93)}
 .brand{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.04em}
 .brand .lg{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:grid;place-items:center;color:#fff;font-family:var(--disp);font-size:15px}
@@ -167,6 +167,7 @@ details{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.65}details
     <details><summary>선생님 안내</summary>
       <div>· 실제 경로: 인천정각초(남동구 구월로 228) 정문 → 구월로 남쪽 인도로 정각중·롯데캐슬 앞을 지나 약 230m(도보 약 4분, 건너는 길 없음, 정각중 옆 주차장 차량 출입구 1곳) → 인천2호선 모래내시장역(I223) 4번 출구 → 대합실 개찰구 → <b>석천사거리 방면</b> 승강장 → 석천사거리 · 인천시청 · 석바위시장 · <b>시민공원(I219)</b>, 4번째 역에서 하차 → 나가는 개찰구 → 2번 출구(주안4동) 쪽 연결통로 자동문 → 아인애비뉴 지하 2층(역과 같은 층) → CGV 인천시민공원(미추홀구 경인로 372).</div>
       <div>· 역 이름, 출구 번호, 방면, 정거장 순서는 인천교통공사 역 정보를 따랐어요. 거리 모습은 카카오맵 로드뷰와 사진을 참고했고, 거리 길이와 역 안 동선 길이는 게임에 맞게 줄였어요.</div>
+      <div>· 게임 오버(처음부터 다시): 차에 치이기, 닫히는 문에 끼기, 다른 역에서 내리기, 시민공원역 지나치기, 안전 점수 0점.</div>
       <div>· 안전 점수가 깎이는 행동: 차량 출입구 경고등이 깜빡일 때 지나가기, 자전거와 부딪히기, 뛰기(Shift), 에스컬레이터에서 걷기, 스크린도어에 기대기, 내리는 사람보다 먼저 타기, 닫히는 문에 뛰어들기, 내릴 역 지나치기.</div>
       <div>· 함께 하기: <a href="teacher.html" target="_blank" rel="noopener">선생님 화면</a>에서 반을 만들고 반 코드를 알려 주세요. 같은 반 코드로 들어온 친구는 최대 30명까지 같은 공간에서 서로 보이고, 이모티콘(숫자 1~6)과 하이파이브(가까이 가서 E)를 할 수 있어요. 진행 상황과 점수는 선생님 화면에 모여요.</div>
     </details>
@@ -409,10 +410,11 @@ const LESSON={
   line:'열차가 들어올 때는 안전선 뒤에서 기다려요.',first:'열차에서 내리는 사람이 다 내린 뒤에 타요.',door:'닫히는 문에 뛰어들지 않고 다음 열차를 기다려요.',
   miss:'안내 방송과 노선도를 보며 내릴 역을 확인해요.',drive:'차량 출입구에서는 경고등과 차를 살피고, 차가 지나간 뒤 건너요.',bike:'인도에서도 자전거·킥보드를 살피고 오른쪽으로 비켜요.'};
 function warn(key,msg,pts){if((G.cool[key]||0)>G.t)return false;G.cool[key]=G.t+5;G.score=Math.max(0,G.score-pts);G.log[key]=(G.log[key]||0)+1;
-  toast('⚠ '+msg+'  (−'+pts+')','bad',3400);sfx('bad');updHud();try{NET.progress();}catch(e){}return true;}
+  toast('⚠ '+msg+'  (−'+pts+')','bad',3400);sfx('bad');updHud();try{NET.progress();}catch(e){}
+  if(G.score<=0&&!G.ended)setTimeout(()=>gameOver(key,'안전 점수가 0점이 되었어요','위험한 행동을 여러 번 했어요. '+(LESSON[key]||'')),600);return true;}
 
 /* 모달: 말하기·퀴즈 */
-function modal(html){const m=$('modal');m.querySelector('.box').innerHTML=html;m.style.display='flex';G.paused=true;}
+function modal(html){if(G.over){mOpen=false;return;}const m=$('modal');m.querySelector('.box').innerHTML=html;m.style.display='flex';G.paused=true;}
 const MQ=[];let mOpen=false;
 function closeModal(){$('modal').style.display='none';mOpen=false;G.paused=false;const n=MQ.shift();if(n)n();}
 function modalGate(fn){if(mOpen){MQ.push(fn);return true;}mOpen=true;return false;}
@@ -696,7 +698,7 @@ function trainSystem(st,sd,zc,o={}){
         if(!S.allowed&&S.t>=2.8){S.allowed=true;o.onAllowed&&o.onAllowed();}
         if(S.allowed&&o.onBoard&&(sd.side<0?P.z>sd.zl+0.45:P.z<sd.zl-0.45)&&sd.inGap()){S.st='boarded';o.onBoard();}
         if(S.t>(o.dwell||22)){S.st='closing';S.t=0;sfx('close');toast('📢 출입문 닫습니다. 닫히는 문에 주의하세요.','ann');speak('출입문 닫습니다.');}}
-      else if(S.st==='closing'){if(sd.inGap()&&Math.abs(P.y-Y2)<0.3&&warn('door','닫히는 문에 뛰어들지 않아요! 다음 열차를 기다려요',5))P.z+=sd.side*1.0;
+      else if(S.st==='closing'){if(sd.inGap()&&Math.abs(P.y-Y2)<0.3&&S.t>0.6){gameOver('door','닫히는 문에 끼었어요','"출입문 닫습니다" 방송이 나오면 뛰어들지 말고 다음 열차를 기다려요.');return;}
         if(S.t>2){sd.open(false);T.open(false);S.st='leave';S.t=0;S.allowed=false;S.ex.forEach(e=>e.n.parent&&e.n.parent.remove(e.n));S.ex=[];}}
       else if(S.st==='leave'){if(S.t>1.2){const k=S.t-1.2;T.g.position.x=fx-1.2*k*k*4;}
         if(S.t>7){T.g.visible=false;T.g.position.x=fx+200;S.st='idle';S.t=0;o.onLeave&&o.onLeave();}}}};
@@ -773,7 +775,7 @@ function worldA(){
   sign('차량 출입 주의',0,2.05,-0.07,Math.PI,1.1,0.32,'#ffd21f','#111',{parent:pole});
   sign('출차 주의 ⚠',48.0,1.7,SWZ+0.06,Math.PI,1.2,0.35,'#ffd21f','#111');
   const dcar=car(0xc0392b);
-  const DRV={st:'park',t:0,z:20,x:52.5,ready:false,lb:-1};dcar.position.set(52.5,0,20);dcar.rotation.y=Math.PI/2;
+  const DRV={st:'park',t:0,z:20,x:52.5,ready:false,lb:-1};W.drv=DRV;dcar.position.set(52.5,0,20);dcar.rotation.y=Math.PI/2;
   const inDrive=()=>P.x>48.8&&P.x<56.2&&P.z>0.7&&P.z<SWZ&&P.y>-0.5;
   W.upd.push(dt=>{if(G.paused)return;DRV.t+=dt;const near=Math.abs(P.x-52.5)<26&&P.y>-0.5;
     const flash=DRV.st!=='park'&&DRV.st!=='road';lightM.color.setHex(flash&&Math.floor(G.t*4)%2?0xffb300:0x553300);
@@ -785,8 +787,9 @@ function worldA(){
     else if(DRV.st==='go2'){DRV.z-=3.2*dt;if(DRV.z<=-1.7){DRV.z=-1.7;DRV.st='road';DRV.t=0;}}
     else if(DRV.st==='road'){DRV.x+=8*dt;if(DRV.t>9){DRV.st='park';DRV.t=0;DRV.x=52.5;DRV.z=20;}}
     dcar.position.set(DRV.x,0,DRV.z);dcar.rotation.y=DRV.st==='road'?0:Math.PI/2;
-    if(flash&&inDrive()){const hit=Math.abs(P.z-DRV.z)<2.8;sfx('horn');
-      if(warn('drive',hit?'차에 부딪힐 뻔했어요! 경고등이 깜빡이면 멈춰요':'차가 나오고 있어요! 멈춰서 기다려요',hit?10:5))setPos(46.8,0,3,Math.PI/2);}});
+    if(flash&&inDrive()){const moving=DRV.st==='go1'||DRV.st==='go2',hit=moving&&Math.abs(P.x-DRV.x)<1.4&&Math.abs(P.z-DRV.z)<2.5;sfx('horn');
+      if(hit){gameOver('drive','주차장에서 나오던 차에 치였어요','차량 출입구에서는 노란 경고등이 깜빡이고 삐- 소리가 나면 멈춰요.\n차가 다 나간 뒤 좌우를 살피고 건너요.');return;}
+      if(warn('drive','차가 나오고 있어요! 멈춰서 기다려요',5))setPos(46.8,0,3,Math.PI/2);}});
   // 정각중 (초록 철망 울타리)
   box(78.5,0,SWZ+0.2,43,2,0.08,TM('mesh',43,2,1.2,{transparent:true}));deco(78.5,0,SWZ+0.2,43,0.4,0.3,0xb4aba0);
   for(let x=57.5;x<100;x+=2.5)deco(x,0,SWZ+0.2,0.08,2.1,0.08,0x2e7d4f);
@@ -880,7 +883,7 @@ function worldA(){
     {t:'내리는 사람이 다 내렸어요. 차례대로 열차에 타요',pos:[door,-12,-10.6],ev:'board',auto:()=>{setPos(door,-12,-10.4);}}
   ]);
   enableShadows(true);
-  if(!G.preview)setTimeout(()=>talk('선생님','오늘은 모래내시장역에서 인천 2호선을 타고 시민공원역까지 가요.\n내려서 아인애비뉴 지하 2층 CGV 인천시민공원까지 걸어갈 거예요.\n줄을 맞추고, 선생님을 잘 따라와요!',null,'출발!'),300);
+  if(!G.preview)setTimeout(()=>talk('선생님','오늘은 모래내시장역에서 인천 2호선을 타고 시민공원역까지 가요.\n내려서 아인애비뉴 지하 2층 CGV 인천시민공원까지 걸어갈 거예요.\n차에 치이거나, 닫히는 문에 끼거나, 내릴 역을 놓치면 게임 오버! 처음부터 다시 해야 해요.',null,'출발!'),300);
 }
 
 /* ================= 2장: 열차 안 ================= */
@@ -963,13 +966,13 @@ function worldRide(){
         if(RS.i===TG){toast('📢 시민공원역입니다. 내리실 문은 오른쪽입니다.','ann',4200);speak('시민공원역입니다. 내리실 문은 오른쪽입니다.');fire('arrive');}}
     }else if(RS.ph==='stop'){
       if(inGap()&&P.z>1.9&&!RS.exited){if(RS.i===TG){RS.exited=true;fire('exit');sfx('good');fade(()=>{$('linemap').style.display='none';worldC();});}
-        else{const left=TG-RS.i;toast(`여기는 ${STN[RS.i].n}역이에요. 시민공원역까지 ${left}정거장 더 가야 해요.`,'bad',3600);P.z=0.9;}}
+        else{RS.exited=true;RS.ph='over';openD(false);gameOver('miss',`${STN[RS.i].n}역에서 내렸어요`,`우리가 내릴 역은 시민공원역이에요. ${STN[RS.i].n}역에서 ${TG-RS.i}정거장 더 가야 했어요.\n노선도와 안내 방송으로 몇 번째 역인지 세어 봐요.`);}}
+      if(RS.t<0.05&&RS.i!==TG&&!RS.tip){RS.tip=1;toast('🚪 문이 열렸어요. 내릴 역이 아니면 내리지 말고 그대로 있어요!','',3600);}
       if(RS.t>(RS.i===TG?14:7)&&!RS.exited){RS.ph='close';RS.t=0;sfx('close');toast('📢 출입문 닫습니다.','ann');speak('출입문 닫습니다.');}
     }else if(RS.ph==='close'){
-      if(inGap()&&P.z>1.55){if(warn('door','닫히는 문에 뛰어들지 않아요!',5))P.z=0.7;}
+      if(inGap()&&P.z>1.55&&RS.t>0.6){RS.ph='over';gameOver('door','닫히는 문에 끼었어요','"출입문 닫습니다" 방송이 나오면 내리거나 타려고 뛰어들지 말아요.');return;}
       if(RS.t>2){openD(false);
-        if(RS.i===TG){warn('miss','내릴 역을 지나쳤어요! 안내 방송을 잘 들어요',5);
-          RS.ph='hold';talk('선생님','시민공원역을 지나쳤어요!\n진짜로 지나치면 다음 역(주안)에서 내려, 반대편 승강장에서 석바위시장 방면 열차를 타고 한 정거장 돌아오면 돼요.\n이번엔 연습이니 다시 시민공원역에 도착해 볼게요.',()=>{RS.ph='run';RS.t=0;RS.ann=0;RS.leaving=true;drawMap();});}
+        if(RS.i===TG){RS.ph='over';gameOver('miss','시민공원역을 지나쳤어요','안내 방송과 문 위 화면을 잘 보고, 문이 열리면 바로 내려요.\n진짜로 지나쳤다면 다음 역(주안)에서 내려 반대편 석바위시장 방면 열차를 타고 한 정거장 돌아와요.');}
         else{RS.i++;RS.ph='run';RS.t=0;RS.ann=0;RS.leaving=true;setLed(`다음 역: ${STN[RS.i].n}`);drawMap();}}
     }
   });
@@ -977,7 +980,7 @@ function worldRide(){
     {t:'손잡이나 기둥을 잡고, 안내 방송을 잘 들어요',ev:'arrive',auto:()=>{}},
     {t:'시민공원역이에요! 오른쪽 문으로 내려요',pos:[4,0,2.2],ev:'exit',auto:()=>{setPos(4,0,2.3);}}
   ]);
-  setTimeout(()=>talk('선생님','열차가 출발해요. 손잡이를 꼭 잡아요.\n시민공원역은 네 번째 역! 함께 세어 봐요.'),200);
+  setTimeout(()=>talk('선생님','열차가 출발해요. 손잡이를 꼭 잡아요.\n시민공원역은 네 번째 역! 함께 세어 봐요.\n문은 역마다 열려요. 다른 역에서 내리거나, 시민공원역을 지나치거나, 닫히는 문에 뛰어들면 게임 오버! 처음부터 다시 해야 해요.'),200);
 }
 
 /* ================= 3장: 시민공원역 → 아인애비뉴 B2 CGV ================= */
@@ -1077,6 +1080,21 @@ function worldC(){
 }
 
 /* ---------- 끝 ---------- */
+function gameOver(key,title,why){
+  if(G.ended)return;G.ended=true;G.over=true;G.paused=true;G.log[key]=(G.log[key]||0)+1;
+  sfx('bad');try{speechSynthesis.cancel();}catch(e){}
+  $('modal').style.display='none';MQ.length=0;mOpen=false;$('linemap').style.display='none';beacon.visible=false;$('hint').style.display='none';
+  const box=$('endBox');box.textContent='';
+  const h=document.createElement('div');h.innerHTML=`<div class="medal">🚫</div><h1 style="margin:4px 0 6px;color:var(--bad)">게임 오버</h1>`;
+  const t=document.createElement('p');t.className='sub';t.style.cssText='font-size:18px;font-weight:700;color:var(--ink);margin:0 0 8px';t.textContent=title;
+  const w=document.createElement('p');w.className='sub';w.style.whiteSpace='pre-line';w.textContent=why;
+  const bt=document.createElement('div');bt.className='btns';bt.style.marginTop='14px';const b=document.createElement('button');b.className='main';bt.appendChild(b);
+  box.append(h,t,w,bt);$('end').style.display='flex';
+  try{NET.progress(true);}catch(e){}
+  let n=AUTO?1:6;const go=()=>{location.href=location.pathname+'?restart=1';};b.onclick=go;
+  const tick=()=>{b.textContent=`처음부터 다시 (${n})`;if(n--<=0)go();else setTimeout(tick,1000);};tick();
+  document.title='OVER '+key;
+}
 function finish(){
   G.ended=true;G.paused=true;const sc=G.score,st=sc>=90?3:sc>=70?2:1;updRail();
   const ms=Object.keys(G.log);
@@ -1109,7 +1127,7 @@ const NET=(function(){
       .then(r=>r.json()).then(j=>{clearTimeout(to);return j&&typeof j==='object'?j:{ok:false,error:'server'};},()=>{clearTimeout(to);return {ok:false,error:'network'};});
   }
   function snapshot(){return {action:'progress',code:prof.code,num:prof.num,nick:prof.nick,world:G.world||'A',step:Math.max(0,si),stepText:String((curStep()||{}).t||'').slice(0,60),
-    score:G.score,quiz:G.quiz,quizN:G.quizN,miss:G.log,done:!!G.ended,hf:MP.hf()};}
+    score:G.score,quiz:G.quiz,quizN:G.quizN,miss:G.log,done:!!G.ended&&!G.over,over:!!G.over,hf:MP.hf()};}
   function progress(force){if(!ep||!prof)return;pending=snapshot();if(force)flush();}
   function flush(){if(!pending||busy)return;busy=true;const b=pending;pending=null;lastSend=Date.now();post(b).then(r=>{busy=false;if(!r.ok&&(r.error==='network'||r.error==='busy')&&!pending)pending=b;});}
   setInterval(()=>{if(pending&&Date.now()-lastSend>8000)flush();},1000);
@@ -1321,7 +1339,8 @@ function start(stage){
 }
 document.querySelectorAll('#start button[data-stage]').forEach(b=>b.onclick=()=>tryStart(+b.dataset.stage));
 $('mpChip').onclick=()=>MP.toggleList();
-if(Q.has('stage')||AUTO){tryStart(+(Q.get('stage')||0));}else{G.preview=true;worldA();}
+if(Q.has('restart')){tryStart(0);setTimeout(()=>toast('처음부터 다시 출발! 이번엔 더 안전하게 가 봐요.','good',3200),400);}
+else if(Q.has('stage')||AUTO){tryStart(+(Q.get('stage')||0));}else{G.preview=true;worldA();}
 
 /* ---------- 루프 ---------- */
 let last=performance.now(),autoT=0;
