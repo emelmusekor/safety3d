@@ -206,7 +206,7 @@ window.onerror=(m,s,l)=>{document.title='ERR '+m+' @'+l;};
 
 /* ---------- 렌더러 ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:!Q.has('low'),powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio||1,Q.has('low')?1:1.6));
+renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio||1,1.25),Q.has('low')?1:2));
 renderer.setSize(innerWidth,innerHeight);
 $('view').appendChild(renderer.domElement);
 const HIGH=!Q.has('low')&&!AUTO&&!('ontouchstart' in window||navigator.maxTouchPoints>0);
@@ -216,7 +216,12 @@ const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,0.1,500);
 const hemi=new THREE.HemisphereLight(0xffffff,0x8090a0,1.7); scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffffff,1.6); sun.position.set(40,80,30); scene.add(sun);scene.add(sun.target);
-sun.shadow.mapSize.set(2048,2048);{const sc=sun.shadow.camera;sc.left=-42;sc.right=42;sc.top=42;sc.bottom=-42;sc.near=1;sc.far=220;}sun.shadow.bias=-0.0005;sun.shadow.normalBias=0.04;
+sun.shadow.mapSize.set(4096,4096);{const sc=sun.shadow.camera;sc.left=-42;sc.right=42;sc.top=42;sc.bottom=-42;sc.near=1;sc.far=220;}sun.shadow.bias=-0.0005;sun.shadow.normalBias=0.04;
+let ENVTEX=null;
+function envMap(){if(ENVTEX)return ENVTEX;try{const pm=new THREE.PMREMGenerator(renderer),sc=new THREE.Scene();sc.add(skyDome());
+  const gd=new THREE.Mesh(new THREE.CircleGeometry(300,24),new THREE.MeshBasicMaterial({color:0x6f6a63}));gd.rotation.x=-Math.PI/2;gd.position.y=-2;sc.add(gd);
+  for(let i=0;i<10;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(30,40+i*5,30),new THREE.MeshBasicMaterial({color:[0xb9b4aa,0xcfcac0,0x9aa3ad][i%3]}));const a=i/10*Math.PI*2;b.position.set(Math.cos(a)*120,10,Math.sin(a)*120);sc.add(b);}
+  ENVTEX=pm.fromScene(sc,0.02).texture;pm.dispose();}catch(e){}return ENVTEX;}
 function skyDome(){const m=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,uniforms:{top:{value:new THREE.Color(0x3f8fd8)},bot:{value:new THREE.Color(0xe9f4fb)}},
   vertexShader:'varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
   fragmentShader:'uniform vec3 top;uniform vec3 bot;varying vec3 vP;void main(){float h=clamp(vP.y*1.5+0.08,0.0,1.0);gl_FragColor=vec4(mix(bot,top,pow(h,0.8)),1.0);\n#include <colorspace_fragment>\n}'});
@@ -489,10 +494,11 @@ const CARG=(()=>{const ex=(pts,depth,bev)=>{const s=new THREE.Shape();pts.forEac
 const CABMAT=new THREE.MeshLambertMaterial({color:0x26323d});
 /* ---------- 차량: 승용차(세단·SUV·해치백)·택시·트럭·버스 ---------- */
 const VMAT={};
-function paint(c){const k='p'+c;return VMAT[k]||(VMAT[k]=new THREE.MeshPhongMaterial({color:c,shininess:90,specular:0x666666}));}
-const VGLASS=new THREE.MeshPhongMaterial({color:0x1b2733,shininess:120,specular:0xaab4c0});
-const VTIRE=new THREE.MeshLambertMaterial({color:0x17191c}),VRIM=new THREE.MeshPhongMaterial({color:0xc9ced4,shininess:110,specular:0xffffff});
-const VTRIM=new THREE.MeshLambertMaterial({color:0x22262b}),VCHROME=new THREE.MeshPhongMaterial({color:0xdfe3e8,shininess:140,specular:0xffffff});
+function paint(c){const k='p'+c;return VMAT[k]||(VMAT[k]=new THREE.MeshStandardMaterial({color:c,metalness:0.45,roughness:0.3,envMap:envMap(),envMapIntensity:1.1}));}
+const VGLASS=new THREE.MeshStandardMaterial({color:0x16212b,metalness:0.85,roughness:0.06,envMap:null,envMapIntensity:1.3});
+const VTIRE=new THREE.MeshLambertMaterial({color:0x17191c}),VRIM=new THREE.MeshStandardMaterial({color:0xd0d5db,metalness:0.9,roughness:0.25});
+const VTRIM=new THREE.MeshLambertMaterial({color:0x22262b}),VCHROME=new THREE.MeshStandardMaterial({color:0xe6e9ee,metalness:1,roughness:0.12});
+function vEnv(){const e=envMap();for(const m of [VGLASS,VRIM,VCHROME])if(m.envMap!==e){m.envMap=e;m.needsUpdate=true;}}
 const VHEAD=new THREE.MeshBasicMaterial({color:0xfdf6dc}),VTAIL=new THREE.MeshBasicMaterial({color:0xd62828}),VAMBER=new THREE.MeshBasicMaterial({color:0xffa31a});
 let PLATEMAT=null;
 function plateMat(){if(PLATEMAT)return PLATEMAT;const cv=document.createElement('canvas');cv.width=128;cv.height=32;const c=cv.getContext('2d');c.fillStyle='#f7f7f2';c.fillRect(0,0,128,32);c.strokeStyle='#222';c.lineWidth=2;c.strokeRect(1,1,126,30);
@@ -519,7 +525,7 @@ function wheelSet(g,x,r,zOut,side){
   for(let k=0;k<5;k++){const sp=new THREE.Mesh(vg('spk'+r,()=>new THREE.BoxGeometry(r*0.12,r*0.52,0.02)),VTRIM);const a=k/5*Math.PI*2;sp.position.set(x+Math.sin(a)*r*0.36,r+Math.cos(a)*r*0.36,zOut+side*0.008);sp.rotation.z=-a;g.add(sp);}
   const arch=new THREE.Mesh(vg('arch'+r,()=>new THREE.CircleGeometry(r*1.22,24,0,Math.PI)),VTRIM);arch.position.set(x,r-0.02,zOut-side*0.055);if(side<0)arch.rotation.y=Math.PI;g.add(arch);
 }
-function carModel(type,color,o={}){
+function carModel(type,color,o={}){vEnv();
   const T=VTYPES[type],g=new THREE.Group(),bm=paint(color),VW=T.W,hw=VW/2;
   g.add(new THREE.Mesh(vg('body'+type,()=>exShape(T.body,VW,0.07)),bm));
   const zs=hw+0.072;
@@ -920,7 +926,7 @@ function screenDoors(x0,x1,zl,y,doorsX,side){
 }
 function makeTrain(len,doorsL,side){
   const g=new THREE.Group(),Wd=2.65,hw=Wd/2;
-  const body=new THREE.Mesh(new THREE.BoxGeometry(len,3.0,Wd),M(0xe4e7ea));body.position.y=1.0;g.add(body);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(len,3.0,Wd),paint(0xe4e7ea));body.position.y=1.0;g.add(body);
   deco(0,0.82,0,len+0.02,1.1,Wd+0.02,0x2a2e34,g);
   deco(0,2.32,0,len+0.02,0.04,Wd+0.02,0xb9bfc6,g);deco(0,-0.48,0,len+0.02,0.22,Wd+0.02,0x8a9098,g);
   {const hl2=len/2,sw=new THREE.Shape();[[-hl2+0.3,0.62],[-hl2+1.6,0.62],[-hl2+3.2,0.25],[hl2-3.2,0.25],[hl2-1.6,0.62],[hl2-0.3,0.62],[hl2-0.3,0.82],[hl2-1.7,0.82],[hl2-3.0,0.48],[-hl2+3.0,0.48],[-hl2+1.7,0.82],[-hl2+0.3,0.82]].forEach(([x,y],i)=>i?sw.lineTo(x,y):sw.moveTo(x,y));
@@ -1154,7 +1160,7 @@ function worldA(){
   for(const [x,z,h] of [[110,34,52],[132,30,58],[150,40,48]]){building(x,z,14,14,h,'#ece3d2','apt',{cam:false});deco(x,h,z,15,2,15,0x9b2335);}
   for(const x of [106,118,128,142])tree(x,9);
   // 공유 자전거 거치대
-  deco(122,0,SWZ-0.55,8,0.08,1.3,0x5b6168);W.col.push({x0:118,x1:126,z0:SWZ-1.2,z1:SWZ,y0:0,y1:1,on:true});
+  deco(122,0,SWZ-0.55,8,0.03,1.1,0xa9aeb4);W.col.push({x0:118,x1:126,z0:SWZ-1.2,z1:SWZ,y0:0,y1:1,on:true});
   for(let i=0;i<5;i++){const b=new THREE.Group();b.position.set(119+i*1.5,0,SWZ-0.55);W.g.add(b);deco(0,0.5,0,0.06,0.06,1.2,0x1f9d55,b);
     for(const z of [-0.5,0.5]){const w=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.035,6,14),M(0x111111));w.rotation.y=Math.PI/2;w.position.set(0,0.32,z);b.add(w);}}
   sign('공유자전거',122,1.25,SWZ-1.02,Math.PI,1.4,0.3,'#1f9d55','#fff');
@@ -1185,6 +1191,29 @@ function worldA(){
     if(d<0.75&&P.y>-0.5){if(warn('bike','자전거와 부딪혔어요! 주위를 살피며 걸어요',3)){P.z=P.z>BZ?4.6:1.4;}}});
   const walkers=[];for(let i=0;i<3;i++){const n=person({c:[0x57534e,0x7c2d12,0x334155][i],s:1});n.position.set(20+i*40,0,4.7);W.g.add(n);walkers.push({n,d:i%2?1:-1});}
   W.upd.push(dt=>{if(G.paused)return;walkers.forEach(w=>{w.n.position.x+=w.d*1.2*dt;if(w.n.position.x<-40)w.d=1;if(w.n.position.x>xa-3)w.d=-1;w.n.rotation.y=w.d>0?Math.PI/2:-Math.PI/2;animPerson(w.n,1.2,dt);});});
+  {// 버스 정류장 '모래내시장역(4번출구)'
+    const bx=125.5,bz=1.6,stl=M(0x3b4148);
+    for(const dx of [-2.1,2.1])box(bx+dx,0,bz+0.6,0.1,2.6,0.1,stl);
+    box(bx,0.12,bz+0.62,4.2,2.2,0.05,GLASS);deco(bx,2.6,bz+0.05,4.6,0.1,1.5,stl);deco(bx,2.55,bz+0.05,4.4,0.05,1.4,GLASS2);
+    deco(bx,0.45,bz+0.35,2.6,0.06,0.4,M(0x8d6e63));for(const dx of [-1.1,1.1])deco(bx+dx,0,bz+0.35,0.08,0.45,0.3,stl);
+    sign('모래내시장역(4번출구)',bx,2.36,bz-0.68,Math.PI,2.4,0.3,'#1d5fae','#fff');
+    const led=sign('곧 도착 · 2번  3분 · 46번  7분',bx+0.4,1.95,bz+0.58,Math.PI,1.6,0.3,'#05080c','#ffb22e');
+    const pole=new THREE.Group();pole.position.set(bx-2.8,0,bz-0.3);W.g.add(pole);deco(0,0,0,0.08,2.8,0.08,stl,pole);
+    sign('🚌 버스\n모래내시장역(4번출구)',0,2.5,-0.05,Math.PI,0.9,0.55,'#1d5fae','#fff',{parent:pole});
+    sign('2 · 46 · 523 · 780',0,1.95,-0.05,Math.PI,0.9,0.4,'#ffffff','#1d5fae',{parent:pole});}
+  {// 교차로 보행 신호등 (호구포로 횡단보도)
+    const pm=[];for(const [x,z,ry] of [[XE+0.6,4.7,-Math.PI/2],[XE+21.4,0.4,Math.PI/2]]){const pg=new THREE.Group();pg.position.set(x,0,z);pg.rotation.y=ry;W.g.add(pg);
+      deco(0,0,0,0.12,2.6,0.12,0x3a3f44,pg);deco(0,2.4,0.12,0.36,0.75,0.22,0x1d2126,pg);
+      const r=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.26,0.03),new THREE.MeshBasicMaterial({color:0x441111}));r.position.set(0,2.95,0.24);pg.add(r);
+      const gq=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.26,0.03),new THREE.MeshBasicMaterial({color:0x113311}));gq.position.set(0,2.6,0.24);pg.add(gq);pm.push([r,gq]);}
+    W.upd.push(()=>{const t=(performance.now()/1000)%20,ph=t<11?0:t<17?1:2,on=ph===1||(ph===2&&Math.floor(t*2.5)%2===0);
+      pm.forEach(([r,gq])=>{r.material.color.setHex(ph===0?0xff3030:0x441111);gq.material.color.setHex(on?0x32ff6a:0x113311);});});}
+  {// 도로 화살표·맨홀
+    const arrow=(x,z,ry)=>decal(x,-0.155,z,1.0,3.2,(c,w,h)=>{c.fillStyle='#f2f2f2';c.fillRect(w*0.42,h*0.3,w*0.16,h*0.7);c.beginPath();c.moveTo(w*0.5,0);c.lineTo(w*0.92,h*0.32);c.lineTo(w*0.08,h*0.32);c.fill();},ry);
+    for(const x of [70,118])for(const z of [-1.7,-5.1,-8.4])arrow(x,z,-Math.PI/2);
+    for(const x of [80,128])for(const z of [-12.6,-16,-19.4])arrow(x,z,Math.PI/2);
+    for(const [x,z] of [[40,-5],[95,-15],[140,-8.5],[20,-18]]){const mh=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.02,20),M(0x3d4045));mh.position.set(x,-0.15,z);W.g.add(mh);}
+    decal(60,-0.155,-5,3.6,1.4,(c,w,h)=>{c.fillStyle='#ffffff';c.font=`bold ${h*0.7}px ${FONT}`;c.textAlign='center';c.textBaseline='middle';c.fillText('천천히',w/2,h/2);},Math.PI/2);}
   // 4번 출구 (롯데캐슬 담장 앞, 아치형 유리 지붕)
   ramp(xa,1.0,xb,2.35,0,-6,'x','esc',{belt:1.15});ramp(xa,2.6,xb,3.9,0,-6,'x','stair');
   rail('x',xa,xb,0.93,0,-6,{solid:true});rail('x',xa,xb,2.47,0,-6);rail('x',xa,xb,3.97,0,-6,{solid:true});
