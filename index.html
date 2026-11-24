@@ -1035,13 +1035,13 @@ function buildStation(o){
 function trainSystem(st,sd,zc,o={}){
   const T=makeTrain(36,[-14,-4,4,14],sd.side);const fx=st.ox+62,Y2=st.Y2;T.g.position.set(fx+200,Y2,zc);T.g.visible=false;
   const S={st:'idle',t:0,allowed:false,ex:[],T,
-    call(delay=0){if(S.st!=='idle')return;S.st='announce';S.t=-delay;},
+    call(delay=0){if(S.st==='announce'&&S.t<-delay){S.t=-delay;return;}if(S.st!=='idle')return;S.st='announce';S.t=-delay;S.said=0;},
     update(dt){if(G.paused)return;S.t+=dt;
-      if(S.st==='announce'){if(S.t>=0&&!S.said){S.said=1;sfx('chime');toast('📢 곧 열차가 들어옵니다. 안전선 뒤로 물러서 주세요.','ann',4000);speak('곧 열차가 들어옵니다. 안전선 밖으로 한 걸음 물러서 주시기 바랍니다.');}
-        if(S.t>3){S.st='arrive';S.t=0;T.g.visible=true;}}
+      if(S.st==='announce'){if(S.t>=0&&!S.said){S.said=1;if(P.y<-3){sfx('chime');toast('📢 곧 열차가 들어옵니다. 안전선 뒤로 물러서 주세요.','ann',4000);speak('곧 열차가 들어옵니다. 안전선 밖으로 한 걸음 물러서 주시기 바랍니다.');}}
+        if(S.t>2.5){S.st='arrive';S.t=0;T.g.visible=true;}}
       else if(S.st==='arrive'){const k=Math.min(1,S.t/6);T.g.position.x=fx+200*Math.pow(1-k,2.2);
         if(Math.abs(P.y-Y2)<0.3&&(sd.side<0?(P.z>sd.zl-0.6&&P.z<sd.zl+0.1):(P.z<sd.zl+0.6))&&Math.abs(P.x-(st.px0+st.px1)/2)<21){if(warn('line','열차가 들어올 때는 안전선 뒤에 서요',2))P.z+=sd.side*0.6;}
-        if(k>=1){S.st='open';S.t=0;S.said=0;sd.open(true);T.open(true);sfx('chime');
+        if(k>=1){S.st='open';S.t=0;S.said=0;sd.open(true);T.open(true);if(P.y<-3)sfx('chime');
           for(let i=0;i<(o.exiters??3);i++){const d=st.doorsX[i%4]+(i>=4?0.3:0);const n=person({c:[0x64748b,0x0ea5e9,0xb45309,0x6d28d9][i%4],s:1});n.position.set(d,Y2,zc+sd.side*-0.4);W.g.add(n);S.ex.push({n,d,t:-i*0.25});}}}
       else if(S.st==='open'){
         S.ex.forEach(e=>{e.t+=dt;if(e.t<0)return;const p=e.n.position;if(e.t<1.6){p.z+=sd.side*dt*1.6;e.n.rotation.y=sd.side<0?Math.PI:0;}else{p.x+=dt*1.5*(e.d>st.ox+62?1:-1);e.n.rotation.y=e.d>st.ox+62?Math.PI/2:-Math.PI/2;}animPerson(e.n,1.6,dt);
@@ -1049,11 +1049,11 @@ function trainSystem(st,sd,zc,o={}){
         if(!S.allowed&&S.t<2.8&&sd.inGap()&&o.player!==false){if(warn('first','내리는 사람이 먼저 내린 뒤에 타요',3)){P.z+=sd.side*0.9;}}
         if(!S.allowed&&S.t>=2.8){S.allowed=true;o.onAllowed&&o.onAllowed();}
         if(S.allowed&&o.onBoard&&(sd.side<0?P.z>sd.zl+0.45:P.z<sd.zl-0.45)&&sd.inGap()){S.st='boarded';o.onBoard();}
-        if(S.t>(o.dwell||22)){S.st='closing';S.t=0;sfx('close');toast('📢 출입문 닫습니다. 닫히는 문에 주의하세요.','ann');speak('출입문 닫습니다.');}}
+        if(S.t>(o.dwell||18)){S.st='closing';S.t=0;if(P.y<-3){sfx('close');toast('📢 출입문 닫습니다. 닫히는 문에 주의하세요.','ann');speak('출입문 닫습니다.');}}}
       else if(S.st==='closing'){if(sd.inGap()&&Math.abs(P.y-Y2)<0.3&&S.t>0.6){gameOver('door','닫히는 문에 끼었어요','"출입문 닫습니다" 방송이 나오면 뛰어들지 말고 다음 열차를 기다려요.');return;}
         if(S.t>2){sd.open(false);T.open(false);S.st='leave';S.t=0;S.allowed=false;S.ex.forEach(e=>e.n.parent&&e.n.parent.remove(e.n));S.ex=[];}}
       else if(S.st==='leave'){if(S.t>1.2){const k=S.t-1.2;T.g.position.x=fx-1.2*k*k*4;}
-        if(S.t>7){T.g.visible=false;T.g.position.x=fx+200;S.st='idle';S.t=0;o.onLeave&&o.onLeave();}}}};
+        if(S.t>5){T.g.visible=false;T.g.position.x=fx+200;S.st='idle';S.t=0;o.onLeave&&o.onLeave();}}}};
   W.upd.push(dt=>S.update(dt));return S;
 }
 
@@ -1235,12 +1235,13 @@ function worldA(){
   sign('1 · 2 · 3번 출구 →\n(호구포로 건너편)',xb+5,-6+2.35,-17.95,0,3.4,0.75,'#ffd21f','#111');
   sign('4번 출구 ↑  정각초 · 정각중 · 구월초',xb+1.0,-6+2.75,2.45,Math.PI/2,3,0.4,'#ffd21f','#111',{two:true});
   sign('타는 곳 →\n석천사거리·인천시청 방면 / 만수·운연 방면',xb+8,-6+2.45,-3,Math.PI/2,4.2,0.75,'#14324f','#fff',{two:true});
+  zone(st.px0,-18,st.px1,-11,-12,()=>{const c=curStep();if(c&&c.id==='plat'&&!c.done&&!G.paused){c.done=true;c.reach();}tsys.call(6);});
   zone(st.px0,-4,st.px1,3,-12,()=>{toast('앗! 여기는 만수·운연 방면이에요. 반대쪽이니 계단으로 다시 올라가요.','bad',4200);sfx('bad');});
   for(const [x,z,c] of [[st.ox+57,-12.2,0x475569],[st.ox+67,-12.6,0x9f1239],[st.ox+75,-12.3,0x0369a1],[st.ox+59,-1.8,0x57534e]]){const n=person({c,s:1});n.position.set(x,-12,z);n.rotation.y=z<-8?0:Math.PI;W.g.add(n);}
   for(const [x,z,c] of [[xb+5,-8,0x334155],[xb+22,-3,0x78716c]]){const n=person({c,s:1});n.position.set(x,-6,z);n.rotation.y=1.2;W.g.add(n);}
   const door=st.doorsX[0];
-  const tsys=trainSystem(st,st.sdN,-9.25,{exiters:3,onAllowed:()=>{toast('내리는 사람이 다 내렸어요. 차례대로 타요!','good');fire('allowed');},
-    onBoard:()=>{fire('board');sfx('good');fade(()=>{worldRide();});},onLeave:()=>{tsys.call(4);toast('다음 열차를 기다려요.');}});
+  const tsys=trainSystem(st,st.sdN,-9.25,{exiters:3,onAllowed:()=>{toast('내리는 사람이 다 내렸어요. 차례대로 타요!','good');{const c=curStep();if(c&&(c.id==='spot'||c.id==='plat')){c.done=true;if(c.id==='plat'){nextStep();}nextStep();}}fire('allowed');},
+    onBoard:()=>{fire('board');sfx('good');fade(()=>{worldRide();});},onLeave:()=>{tsys.call(2);if(P.y<-11)toast('다음 열차가 곧 와요. 안전선 뒤에서 기다려요.');}});W.tsys=tsys;tsys.call(4);
   // 선생님
   const tch=person({c:0x1e3a8a,p:0x1f2937,s:1.02,h:0x111111,hs:1,flag:true});tch.position.set(2.2,0,11.5);tch.rotation.y=Math.PI*1.1;W.g.add(tch);
   W.acts.push({x:2.2,y:0,z:11.5,r:2,label:'선생님과 이야기하기',fn:()=>talk('선생님','교문을 나가면 오른쪽으로 구월로 인도를 따라 걸어요.\n정각중 옆 주차장 출입구를 지나면, 롯데캐슬 담장 앞에 4번 출구가 있어요.')});
@@ -1257,8 +1258,8 @@ function worldA(){
     {t:'에스컬레이터를 타고 대합실로 내려가요 (손잡이 꼭!)',pos:[xb+1.5,-6,1.7],r:1.8},
     {t:'개찰구에서 교통카드를 찍어요 (E 키 · 행동 버튼)',pos:[st.gx-1.0,-6,lane],ev:'tapIn',auto:()=>{setPos(st.gx-1.0,-6,lane,Math.PI/2);doAct();}},
     {t:'‘석천사거리 · 인천시청 방면’ 타는 곳으로 가요',pos:[xb+31,-6,-14],r:1.8},
-    {t:'승강장으로 내려가요. 에스컬레이터에서는 걷지 않아요',pos:[st.px0+1.5,-12,-13.9],r:2,reach:()=>quiz(QZ.wait,nextStep)},
-    {t:'노란 ‘타는 곳’ 표시(문 양옆)에서 열차를 기다려요',pos:[door-1.05,-12,-11.9],r:1.0,reach:()=>{tsys.call(1.5);nextStep();}},
+    {id:'plat',t:'승강장으로 내려가요. 에스컬레이터에서는 걷지 않아요',pos:[st.px0+1.5,-12,-13.9],r:2,reach:()=>quiz(QZ.wait,nextStep)},
+    {id:'spot',t:'노란 ‘타는 곳’ 표시(문 양옆)에서 열차를 기다려요',pos:[door-1.05,-12,-11.9],r:2.5,start:()=>{tsys.call(8);},reach:()=>{tsys.call(1.5);nextStep();}},
     {t:'열차가 들어와요. 안전선 뒤에서 기다려요',ev:'allowed',auto:()=>{}},
     {t:'내리는 사람이 다 내렸어요. 차례대로 열차에 타요',pos:[door,-12,-10.6],ev:'board',auto:()=>{setPos(door,-12,-10.4);}}
   ]);
