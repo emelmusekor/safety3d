@@ -282,7 +282,7 @@ function deco(x,y,z,w,h,d,c,parent){return box(x,y,z,w,h,d,c,{col:false,parent})
 function decoCam(x,y,z,w,h,d,c){const m=deco(x,y,z,w,h,d,c);W.cam.push(m);return m;}
 function floor(x0,z0,x1,z1,y,c){
   const f={x0,x1,z0,z1,y,on:true};W.fl.push(f);
-  if(c!=null){const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,0.2,z1-z0),(typeof c==='object')?c:M(c));m.position.set((x0+x1)/2,y-0.1,(z0+z1)/2);W.g.add(m);f.m=m;}
+  if(c!=null){const m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,0.2,z1-z0),(typeof c==='object')?c:M(c));m.position.set((x0+x1)/2,y-0.1,(z0+z1)/2);W.g.add(m);W.cam.push(m);f.m=m;}
   return f;
 }
 function ceilMat(c){const k='ce'+c;return MC[k]||(MC[k]=new THREE.MeshLambertMaterial({color:c,emissive:new THREE.Color(c).multiplyScalar(0.62)}));}
@@ -302,19 +302,20 @@ function stepTex(axis,base,line,edge){
   if(axis==='x'){cv.width=32;cv.height=128;}else{cv.width=128;cv.height=32;}
   const c=cv.getContext('2d');c.fillStyle=base;c.fillRect(0,0,cv.width,cv.height);c.fillStyle=line;
   if(axis==='x')c.fillRect(0,0,4,128);else c.fillRect(0,0,128,4);
+  if(edge){c.fillStyle='rgba(40,44,50,.35)';for(let k=12;k<116;k+=5){if(axis==='x')c.fillRect(4,k,28,2);else c.fillRect(k,4,2,28);}}
   if(edge){c.fillStyle=edge;if(axis==='x'){c.fillRect(0,0,32,10);c.fillRect(0,118,32,10);c.fillRect(0,0,6,128);}else{c.fillRect(0,0,10,32);c.fillRect(118,0,10,32);c.fillRect(0,0,128,6);}}
   const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 function ramp(x0,z0,x1,z1,ya,yb,axis,kind,o={}){
   const f={x0,x1,z0,z1,ya,yb,axis,on:true};W.fl.push(f);
   const L=axis==='x'?x1-x0:z1-z0,wd=axis==='x'?z1-z0:x1-x0,dy=yb-ya,len=Math.hypot(L,dy),ang=Math.atan2(dy,L);
-  const tex=kind==='esc'?stepTex(axis,'#5c636b','#2b2f33','#ffd21f'):stepTex(axis,'#b9b4aa','#7d776d',null);
+  const tex=kind==='esc'?stepTex(axis,'#a3aab2','#3a3f45','#ffd21f'):stepTex(axis,'#b9b4aa','#7d776d',null);
   const n=len/(kind==='esc'?0.4:0.3);
   if(axis==='x')tex.repeat.set(n,1);else tex.repeat.set(1,n);
   const m=new THREE.Mesh(new THREE.BoxGeometry(axis==='x'?len:wd,0.14,axis==='x'?wd:len),new THREE.MeshLambertMaterial({map:tex}));
   m.position.set((x0+x1)/2,(ya+yb)/2-0.07,(z0+z1)/2);
   if(axis==='x')m.rotation.z=ang;else m.rotation.x=-ang;
-  W.g.add(m);
+  W.g.add(m);W.cam.push(m);
   if(o.belt){W.belts.push({f,v:o.belt,tex,axis,len});}
   return m;
 }
@@ -858,6 +859,7 @@ function updCamera(dt){
   ray.set(tmpH,dir);ray.far=L;const hit=ray.intersectObjects(W.cam,false)[0];
   if(hit)tmpV.copy(tmpH).addScaledVector(dir,Math.max(0.4,hit.distance-0.25));
   P.mesh.visible=tmpV.distanceTo(tmpH)>0.55;
+  {let gy=-1e9;for(const f of W.fl){if(!f.on||tmpV.x<f.x0||tmpV.x>f.x1||tmpV.z<f.z0||tmpV.z>f.z1)continue;const h=hOf(f,tmpV.x,tmpV.z);if(h<=P.y+3&&h>gy)gy=h;}if(gy>-1e8&&tmpV.y<gy+0.6)tmpV.y=gy+0.6;}
   camera.position.copy(tmpV);
   if(camShake>0){camera.position.y+=Math.sin(G.t*23)*0.012*camShake;camera.position.x+=Math.sin(G.t*17)*0.01*camShake;}
   camera.lookAt(P.x,P.y+1.05,P.z);
