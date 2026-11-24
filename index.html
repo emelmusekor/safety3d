@@ -715,7 +715,7 @@ function updFriends(dt){
   if(!last||Math.hypot(last[0]-P.x,last[2]-P.z)>0.35){P.crumbs.push([P.x,P.y,P.z]);if(P.crumbs.length>60)P.crumbs.shift();}
   FR.forEach((f,i)=>{const idx=P.crumbs.length-1-[3,3,7][i];let tx,ty,tz;
     if(idx>=0){[tx,ty,tz]=P.crumbs[idx];}else{tx=f.position.x;ty=P.y;tz=f.position.z;}
-    const ox2=[-0.75,0.75,0][i]*Math.cos(P.yaw),oz2=-[-0.75,0.75,0][i]*Math.sin(P.yaw);{const q={x:tx+ox2,z:tz+oz2,y:ty};pushOut(q);if(groundAt(q.x,q.z,ty)!==null&&Math.hypot(q.x-tx-ox2,q.z-tz-oz2)<0.05){tx=q.x;tz=q.z;}}
+    const ox2=[-0.75,0.75,0][i]*Math.cos(P.yaw),oz2=-[-0.75,0.75,0][i]*Math.sin(P.yaw);{const q={x:tx+ox2,z:tz+oz2,y:ty},mq={x:tx+ox2/2,z:tz+oz2/2,y:ty};pushOut(q);pushOut(mq);if(groundAt(q.x,q.z,ty)!==null&&Math.hypot(q.x-tx-ox2,q.z-tz-oz2)<0.05&&Math.hypot(mq.x-tx-ox2/2,mq.z-tz-oz2/2)<0.05){tx=q.x;tz=q.z;}}
     const dx=tx-f.position.x,dz=tz-f.position.z,d=Math.hypot(dx,dz);
     if(d>12){f.position.set(tx,ty,tz);}
     const k=Math.min(1,dt*4);f.position.x+=dx*k;f.position.z+=dz*k;f.position.y+=(ty-f.position.y)*Math.min(1,dt*8);
@@ -774,6 +774,7 @@ function updCamera(dt){
   const dir=tmpV.clone().sub(tmpH);const L=dir.length();dir.normalize();
   ray.set(tmpH,dir);ray.far=L;const hit=ray.intersectObjects(W.cam,false)[0];
   if(hit)tmpV.copy(tmpH).addScaledVector(dir,Math.max(0.4,hit.distance-0.25));
+  P.mesh.visible=tmpV.distanceTo(tmpH)>0.55;
   camera.position.copy(tmpV);
   if(camShake>0){camera.position.y+=Math.sin(G.t*23)*0.012*camShake;camera.position.x+=Math.sin(G.t*17)*0.01*camShake;}
   camera.lookAt(P.x,P.y+1.05,P.z);
@@ -786,11 +787,11 @@ function updCamera(dt){
 
 /* ---------- 단계(할 일) ---------- */
 let steps=[],si=-1;
-const beacon=new THREE.Group();{const c=new THREE.Mesh(new THREE.ConeGeometry(0.32,0.7,16),MB(0xffc400));c.rotation.x=Math.PI;beacon.add(c);
+const beacon=new THREE.Group();{const c=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.56,16),new THREE.MeshBasicMaterial({color:0xffc400,transparent:true,opacity:.85}));c.rotation.x=Math.PI;beacon.add(c);
   const r=new THREE.Mesh(new THREE.RingGeometry(0.55,0.75,32),new THREE.MeshBasicMaterial({color:0xffc400,transparent:true,opacity:.7,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.name='ring';beacon.add(r);}
 scene.add(beacon);
 const RAIL=[['🏫','정각초'],['🚶','구월로 인도'],['🚇','모래내시장역'],['🚆','열차'],['🚉','시민공원역'],['🎬','CGV']];
-function railIdx(){if(G.ended)return 6;if(G.world==='ride')return 3;if(G.world==='C')return si>=5?5:4;return si<=0?0:si<=3?1:2;}
+function railIdx(){if(G.ended)return 6;if(G.world==='ride')return 3;if(G.world==='C')return si>=5?5:4;return si<=1?0:si<=4?1:2;}
 function updRail(){const r=$('rail');if(!r)return;const k=railIdx();if(r.dataset.k===String(k))return;r.dataset.k=k;r.textContent='';
   RAIL.forEach(([e,t],i)=>{if(i){const l=document.createElement('div');l.className='l'+(i<=k?' done':'');r.appendChild(l);}
     const n=document.createElement('div');n.className='n'+(i<k?' done':i===k?' cur':'');const d=document.createElement('div');d.className='d';d.textContent=i<k?'✓':e;const tt=document.createElement('div');tt.className='t';tt.textContent=t;n.append(d,tt);r.appendChild(n);});}
@@ -1136,6 +1137,7 @@ function worldA(){
   const lane=st.lanes[1];
   setSteps([
     {t:'교문으로 걸어가요',pos:[0,0,6.3],r:1.8,reach:()=>quiz(QZ.gate,nextStep)},
+    {t:'교문을 지나 인도로 나가요',pos:[0,0,2.6],r:1.4},
     {t:'교문을 나와 오른쪽으로, 구월로 인도를 따라 걸어요',pos:[46.6,0,3],r:1.5,reach:()=>quiz(QZ.drive,()=>{DRV.ready=true;DRV.t=0;nextStep();})},
     {t:'경고등이 깜빡이면 멈춰요. 차가 지나간 뒤 좌우를 보고 건너요',pos:[59,0,3],r:1.5,auto:()=>{if(DRV.st==='road'||(DRV.st==='park'&&!DRV.ready))setPos(59,0,3);}},
     {t:'롯데캐슬 담장 앞, 모래내시장역 4번 출구로 가요',pos:[xa-0.7,0,2.45],r:1.6,reach:()=>quiz(QZ.escDown,nextStep)},
