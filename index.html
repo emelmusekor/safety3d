@@ -402,8 +402,8 @@ let FLAGMAT=null;
 /* ---------- 사람 ---------- */
 function person(o={}){
   const g=new THREE.Group(),inner=new THREE.Group();g.add(inner);
-  const seed=(o.c||0)%97,hs=o.hs!=null?o.hs:seed%4;
-  const top=M(o.c||0x3b82f6),pants=M(o.p||0x2f3b4a),skin=M(o.skin||[0xf3c9a3,0xeab98f,0xf6d2b3][seed%3]),hair=M(o.h||0x2a1f18),dark=M(0x2a2e35);
+  const seed=(o.c||0)%97,hs=o.hs!=null?o.hs:seed%4,adult=!o.cap&&!o.flag&&o.vary!==false,vv=((o.c||0)>>>3)%23,old=adult&&vv%5===2,skirt=adult&&!old&&vv%4===1,shop=adult&&!old&&vv%3===0;
+  const top=M(o.c||0x3b82f6),pants=M(o.p||0x2f3b4a),skin=M(o.skin||[0xf3c9a3,0xeab98f,0xf6d2b3][seed%3]),hair=M(old?0xcfcfcf:(o.h||0x2a1f18)),dark=M(0x2a2e35);
   const shirt2=M(new THREE.Color(o.c||0x3b82f6).multiplyScalar(0.8).getHex());
   const body=new THREE.Mesh(GEO.torso,top);body.position.y=1.0;inner.add(body);
   const hips=new THREE.Mesh(GEO.hips,pants);hips.position.y=0.72;inner.add(hips);
@@ -438,9 +438,13 @@ function person(o={}){
       const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;FLAGMAT=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide});}
     const fh=new THREE.Group();fh.position.y=-0.48;arms[0].add(fh);const st=new THREE.Mesh(GEO.flagStick,M(0x8a8f96));st.position.y=0.3;fh.add(st);
     const fl=new THREE.Mesh(GEO.flag,FLAGMAT);fl.position.set(0,0.52,0.17);fl.rotation.y=Math.PI/2;fh.add(fl);arms[0].rotation.x=-0.9;}
+  if(skirt){const sk=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.29,0.4,16),pants);sk.position.y=0.56;inner.add(sk);}
+  if(old){const ch=new THREE.Group();ch.position.y=-0.48;arms[0].add(ch);const cn=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.85,6),M(0x6d4c2f));cn.position.set(0,-0.35,0.12);cn.rotation.x=0.15;ch.add(cn);arms[0].rotation.x=-0.25;inner.rotation.x=0.06;g.userData.cane=true;}
+  if(shop){const bh=new THREE.Group();bh.position.y=-0.5;arms[1].add(bh);const pb=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.3,0.12),M([0xd7b98a,0xffffff,0xe3a1b5][vv%3]));pb.position.y=-0.17;bh.add(pb);
+    const hd=new THREE.Mesh(new THREE.TorusGeometry(0.06,0.01,4,10,Math.PI),M(0x8a6b45));hd.position.y=-0.02;bh.add(hd);}
   inner.traverse(m=>{if(m.isMesh&&!m.material.isMeshBasicMaterial)m.castShadow=true;});
   const shd=new THREE.Mesh(GEO.bshadow,SHADOWMAT);shd.rotation.x=-Math.PI/2;shd.position.y=0.02;shd.renderOrder=1;g.add(shd);
-  const s=o.s||1;g.scale.setScalar(s);g.userData={legs,arms,ph:Math.random()*6,inner,head:H,flag:!!o.flag};
+  const s=(o.s||1)*(old?0.95:1);g.scale.setScalar(s);g.userData={legs,arms,ph:Math.random()*6,inner,head:H,flag:!!o.flag||old};
   return g;
 }
 function animPerson(p,spd,dt){const u=p.userData;u.ph+=dt*(4+spd*2.2);const k=Math.min(1,spd/2.5),walk=spd>0.15,a=walk?Math.sin(u.ph)*0.6*k:0;
@@ -466,6 +470,64 @@ function car(c){const g=new THREE.Group(),bm=M(c);
     const r=new THREE.Mesh(CARG.rim,M(0xbfc5cc));r.rotation.x=Math.PI/2;r.position.set(x,0.34,z);g.add(r);}
   g.traverse(m=>{if(m.isMesh&&!m.material.isMeshBasicMaterial)m.castShadow=true;});
   W.g.add(g);return g;}
+
+/* ---------- 모델 2: 구름·버스·포스터·역 소품 ---------- */
+const CLOUDMAT=new THREE.MeshLambertMaterial({color:0xffffff,flatShading:true,fog:false,emissive:0x8899aa,emissiveIntensity:0.25});
+const CLOUDG=new THREE.IcosahedronGeometry(1,1);
+function clouds(n){const list=[];for(let i=0;i<n;i++){const g=new THREE.Group();const k=3+(i%3);
+    for(let j=0;j<k;j++){const m=new THREE.Mesh(CLOUDG,CLOUDMAT);const r=5+((i*7+j*3)%5)*1.6;m.scale.set(r*1.3,r*0.75,r);m.position.set((j-k/2)*r*1.3,((j*5)%3)*1.2,((j*7)%3-1)*r*0.6);g.add(m);}
+    g.position.set(-200+((i*97)%460),75+((i*31)%40),-180+((i*53)%300));W.g.add(g);list.push(g);}
+  W.upd.push(dt=>{for(const g of list){g.position.x+=dt*1.2;if(g.position.x>280)g.position.x=-220;}});}
+function busModel(color){
+  const g=new THREE.Group(),L=11,Wd=2.5;const s=new THREE.Shape();
+  [[-L/2,0.35],[-L/2,2.9],[-L/2+0.25,3.15],[L/2-0.5,3.15],[L/2-0.1,2.9],[L/2,2.2],[L/2,0.35]].forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));
+  const geo=new THREE.ExtrudeGeometry(s,{depth:Wd,bevelEnabled:true,bevelSize:0.06,bevelThickness:0.06,bevelSegments:2});geo.translate(0,0,-Wd/2);
+  g.add(new THREE.Mesh(geo,M(color)));
+  deco(0,1.45,0,L-0.6,1.15,Wd+0.14,CABMAT,g);deco(L/2+0.02,1.2,0,0.1,1.6,Wd-0.3,CABMAT,g);deco(-L/2-0.02,1.6,0,0.1,1.0,Wd-0.4,CABMAT,g);
+  deco(0,0.5,0,L+0.1,0.22,Wd+0.14,M(0xf2f2f2),g);
+  const ds=sign('2 · 구월동 · 모래내시장',L/2+0.1,2.75,0,Math.PI/2,2.0,0.32,'#111','#ffb020',{parent:g});
+  for(const x of [-L/2+1.8,L/2-2.2])for(const z of [-1.1,1.1]){const w=new THREE.Mesh(CARG.tire,M(0x1b1e22));w.rotation.x=Math.PI/2;w.scale.set(1.15,1.6,1.15);w.position.set(x,0.4,z);g.add(w);
+    const r=new THREE.Mesh(CARG.rim,M(0xbfc5cc));r.rotation.x=Math.PI/2;r.scale.set(1.15,1.6,1.15);r.position.set(x,0.4,z);g.add(r);}
+  for(const z of [-0.85,0.85]){const l=new THREE.Mesh(CARG.lamp,MB(0xfff4c8));l.position.set(L/2+0.06,0.75,z);g.add(l);}
+  g.traverse(m=>{if(m.isMesh&&!m.material.isMeshBasicMaterial)m.castShadow=true;});
+  W.g.add(g);return g;
+}
+const POSTERS={
+  safety:[['손잡이를 꼭!','열차 안에서는 손잡이를 잡아요','🤲','#ff8a00','#ffcf70'],['내리는 사람 먼저','타는 곳 양옆에서 기다려요','🚪','#2d6cdf','#9cc8ff'],['교통약자석 양보','필요한 분께 자리를 비워 두어요','💛','#18a058','#a8e6c1'],['에스컬레이터 안전','노란 선 안에, 걷지 않기','🛗','#9b5de5','#d9c2ff'],['교통카드 충전','역무실 옆 충전기를 이용해요','💳','#e5484d','#ffc2c4']],
+  movie:[['우주 탐험대','12월 대개봉','🚀','#1b1f4b','#6c5ce7'],['바다 친구들','온 가족 애니메이션','🐠','#0a6c8f','#4fd1e8'],['용감한 소방관','어린이 히어로','🚒','#8c1c13','#ff7a59'],['마법 도서관','책 속으로 떠나요','📚','#3b2c64','#f6c453'],['숲속 운동회','웃음 가득 코미디','🦊','#2e6b30','#b8e986']]};
+function posterTex(kind,i){
+  const k='poster_'+kind+i;if(TEXC[k])return TEXC[k];const [t,sub,emo,c1,c2]=POSTERS[kind][i%POSTERS[kind].length];
+  const cv=document.createElement('canvas');cv.width=256;cv.height=360;const c=cv.getContext('2d');
+  const gr=c.createLinearGradient(0,0,0,360);gr.addColorStop(0,c2);gr.addColorStop(1,c1);c.fillStyle=gr;c.fillRect(0,0,256,360);
+  c.fillStyle='rgba(255,255,255,.18)';c.beginPath();c.arc(200,70,90,0,7);c.fill();
+  c.font='120px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(emo,128,150);
+  c.fillStyle='#fff';c.font=`bold 34px ${FONT}`;c.fillText(t,128,262);c.font=`bold 17px ${FONT}`;c.fillStyle='rgba(255,255,255,.9)';c.fillText(sub,128,300);
+  c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=8;c.strokeRect(4,4,248,352);
+  const tx=new THREE.CanvasTexture(cv);tx.colorSpace=THREE.SRGBColorSpace;tx.anisotropy=4;return TEXC[k]=tx;
+}
+function poster(kind,i,x,y,z,ry,w=1.1){
+  const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=ry;W.g.add(g);
+  deco(0,-w*0.7-0.04,-0.03,w+0.1,w*1.41+0.08,0.05,M(0x3a3f45),g);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,w*1.41),new THREE.MeshBasicMaterial({map:posterTex(kind,i)}));g.add(m);return g;
+}
+function bench(x,y,z,ry,c=0x8d6e63){const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=ry;W.g.add(g);
+  deco(0,0.42,0,1.8,0.08,0.45,M(c),g);deco(0,0.5,-0.2,1.8,0.45,0.06,M(c),g);for(const sx of [-0.75,0.75])deco(sx,0,0,0.08,0.42,0.42,M(0x5b6168),g);
+  const r=ry%Math.PI===0;W.col.push(r?{x0:x-0.9,x1:x+0.9,z0:z-0.25,z1:z+0.25,y0:y,y1:y+0.9,on:true}:{x0:x-0.25,x1:x+0.25,z0:z-0.9,z1:z+0.9,y0:y,y1:y+0.9,on:true});}
+function trashBins(x,y,z){for(const [dx,c] of [[-0.35,0x2e7d32],[0.35,0x1565c0]]){box(x+dx,y,z,0.6,0.9,0.5,c);deco(x+dx,y+0.9,z,0.62,0.05,0.52,M(0x9aa0a6));}}
+function stationExtras(o){
+  const {px0,px1,Y1,Y2,ox,gx}=o;
+  // 승강장: 벤치·공익 포스터·시계·소화전함·CCTV
+  for(const [x,i] of [[px0+12,0],[px0+26,1],[px0+39,2]]){poster('safety',i,x,Y2+1.55,-17.97,0);poster('safety',i+1,x,Y2+1.55,2.97,Math.PI);}
+  bench(px0+12,Y2,-17.1,0);bench(px0+26,Y2,-17.1,0);bench(px0+12,Y2,2.1,Math.PI);bench(px0+26,Y2,2.1,Math.PI);
+  for(const [zz,ry] of [[-17.95,0],[2.95,Math.PI]]){const cg=new THREE.Group();cg.position.set(px0+32,Y2+2.75,zz);cg.rotation.y=ry;W.g.add(cg);
+    const cl=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.06,24),M(0xffffff));cl.rotation.x=Math.PI/2;cl.position.z=0.04;cg.add(cl);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.03,6,24),M(0x30353b));rim.position.z=0.07;cg.add(rim);
+    for(const [len,rot] of [[0.2,-0.5],[0.26,1.2]]){const h=new THREE.Mesh(new THREE.BoxGeometry(0.025,len,0.01),M(0x1d2228));h.geometry.translate(0,len/2,0);h.rotation.z=rot;h.position.z=0.08;cg.add(h);}
+    deco(px1-2,Y2+0.6,zz+(ry?-0.12:0.12),0.8,1.1,0.22,0xc62828);sign('소화전',px1-2,Y2+1.45,zz+(ry?-0.24:0.24),ry,0.6,0.18,'#c62828','#fff');}
+  for(const [x,z] of [[px0+8,-12.8],[px0+30,-12.8],[px0+8,-2.2],[px0+30,-2.2]]){const d=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,6,0,Math.PI*2,Math.PI/2,Math.PI/2),M(0x1d2228));d.position.set(x,Y2+3.78,z);W.g.add(d);}
+  // 대합실: 쓰레기통·포스터
+  trashBins(ox+20,Y1,-17.5);poster('safety',3,ox+26,Y1+1.6,-17.97,0,0.95);poster('safety',4,ox+29,Y1+1.6,-17.97,0,0.95);
+}
 
 /* ---------- 오디오·음성 ---------- */
 let AC=null;
@@ -676,8 +738,15 @@ function makeTrain(len,doorsL,side){
   deco(0,0.72,0,len+0.02,1.2,Wd+0.02,0x2b2f35,g);
   deco(0,0.28,0,len+0.03,0.17,Wd+0.03,ORANGE,g);
   deco(0,2.3,0,len+0.02,0.05,Wd+0.02,0x9aa1a8,g);
-  for(const e of [-1,1]){deco(e*(len/2+0.06),-0.5,0,0.12,3.0,Wd,0x26292e,g);deco(e*(len/2+0.13),0.6,0,0.04,1.45,Wd-0.45,0x0d0f12,g);
-    deco(e*(len/2+0.14),0.2,0,0.04,0.3,0.34,ORANGE,g);for(const z of [-0.9,0.9])deco(e*(len/2+0.14),0.0,z,0.04,0.12,0.3,MB(0xfff6d0),g);}
+  {const sh=new THREE.Shape();[[0,-0.5],[0.5,-0.5],[0.78,0.05],[0.74,1.9],[0.42,2.46],[0,2.5]].forEach(([x,y],i)=>i?sh.lineTo(x,y):sh.moveTo(x,y));
+    const ng=new THREE.ExtrudeGeometry(sh,{depth:Wd-0.12,bevelEnabled:true,bevelSize:0.05,bevelThickness:0.05,bevelSegments:2});ng.translate(0,0,-(Wd-0.12)/2);
+    for(const e of [-1,1]){const fr=new THREE.Group();fr.position.x=e*len/2;fr.rotation.y=e>0?0:Math.PI;g.add(fr);
+      fr.add(new THREE.Mesh(ng,M(0xd3d7dc)));
+      const ws=new THREE.Mesh(new THREE.BoxGeometry(0.05,1.35,Wd-0.55),M(0x0d1117));ws.position.set(0.79,1.05,0);ws.rotation.z=0.03;fr.add(ws);
+      deco(0.76,-0.12,0,0.06,0.3,Wd-0.1,0x2b2f35,fr);deco(0.8,0.18,0,0.04,0.17,Wd-0.12,ORANGE,fr);
+      for(const z of [-0.85,0.85]){const hl=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.12,0.36),MB(0xfff6d0));hl.position.set(0.8,0.48,z);fr.add(hl);}
+      const em=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.28,0.28),M(ORANGE));em.position.set(0.81,0.5,0);fr.add(em);
+      const led=sign('시민공원 · 주안 방면',0.82,2.05,0,Math.PI/2,1.4,0.24,'#111','#ffb020',{parent:fr});}}
   deco(0,-0.5,0,0.5,3.0,Wd+0.04,0x3a3f45,g);
   const doors=[];
   for(const d of doorsL)for(const s of [-1,1]){const l=deco(d-0.33,-0.02,s*(hw+0.02),0.66,2.05,0.05,0xc9cdd2,g),r=deco(d+0.33,-0.02,s*(hw+0.02),0.66,2.05,0.05,0xc9cdd2,g);
@@ -760,6 +829,7 @@ function buildStation(o){
   // 스크린도어 기대기 경고
   W.upd.push(()=>{if(G.paused)return;for(const sd of [sdN,sdS]){if(Math.abs(P.y-Y2)<0.3&&sd.nearFace()&&sd.k<0.1&&P.x>px0&&P.x<px1&&(sd.side<0?P.vz>0.4:P.vz<-0.4)){
     if(warn('psd','스크린도어에 기대거나 밀지 않아요',2)){P.z+=sd.side*0.5;}}}});
+  stationExtras({px0,px1,Y1,Y2,ox,gx});
   return {ox,gx,Y1,Y2,lanes,doorsX,sdN,sdS,px0,px1,tapped};
 }
 
@@ -803,7 +873,7 @@ function vault(x0,x1,zc,r){
 }
 function worldA(){
   newWorld();G.world='A';scene.background=new THREE.Color(0xa8d4f0);W.sky=0xa8d4f0;hemi.intensity=1.25;sun.intensity=2.6;sun.color.setHex(0xfff1dc);hemi.color.setHex(0xdbeeff);hemi.groundColor.setHex(0x8a8070);
-  W.dome=skyDome();W.g.add(W.dome);scene.fog=new THREE.Fog(0xdcecf6,120,380);
+  W.dome=skyDome();W.g.add(W.dome);clouds(16);scene.fog=new THREE.Fog(0xdcecf6,120,380);
   const xa=136,xb=146.4,XE=152,SWZ=5.5;
   // 땅·도로 (구월로: 편도 3차로, 가운데 분리 울타리)
   deco(60,-0.4,62,440,0.2,114,0x8fa872);deco(60,-0.4,-62,440,0.2,74,0x8fa872);
@@ -905,9 +975,8 @@ function worldA(){
   // 큰길 자동차·버스
   const cars=[];const cc=[0xf8fafc,0x111827,0x9ca3af,0xb91c1c,0x1e3a8a,0xe5e7eb];const lanesE=[-1.7,-5.1,-8.4],lanesW=[-12.6,-16,-19.4];
   for(let i=0;i<12;i++){const east=i%2===0;const c=car(cc[i%6]);c.rotation.y=east?0:Math.PI;const z=(east?lanesE:lanesW)[(i>>1)%3];c.position.set(-120+i*32,-0.18,z);cars.push({c,east,v:7+(i%4)});}
-  {const bus=new THREE.Group();const bb=new THREE.Mesh(new THREE.BoxGeometry(11,3,2.5),M(0x1e63b8));bb.position.y=1.7;bus.add(bb);deco(0,1.6,0,11.02,1.1,2.52,DARKWIN,bus);
-    for(const x of [-3.8,3.8])for(const z of [-1.1,1.1]){const w=new THREE.Mesh(GEO.wheel,M(0x111111));w.rotation.x=Math.PI/2;w.position.set(x,0.35,z);bus.add(w);}
-    bus.position.set(-40,-0.18,-12.6);bus.rotation.y=Math.PI;W.g.add(bus);cars.push({c:bus,east:false,v:6.5});}
+  {const bus=busModel(0x1e63b8);bus.position.set(-40,-0.18,-12.6);bus.rotation.y=Math.PI;cars.push({c:bus,east:false,v:6.5});
+    const bus2=busModel(0x2e9e5b);bus2.position.set(90,-0.18,-5.1);cars.push({c:bus2,east:true,v:6});}
   W.upd.push(dt=>{if(G.paused)return;for(const k of cars){k.c.position.x+=(k.east?1:-1)*k.v*dt;if(k.c.position.x>XE+90)k.c.position.x=-150;if(k.c.position.x<-150)k.c.position.x=XE+90;}});
   // 자전거·보행자
   const bike=new THREE.Group();{const r=person({c:0x0f766e,s:0.95});r.position.y=0.35;bike.add(r);const fr=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,1.3),M(0x1f9d55));fr.position.y=0.55;bike.add(fr);
@@ -1133,6 +1202,11 @@ function worldC(){
   box(cx1+0.15,Y1,(cz0+cz1)/2,0.3,4.3,cz1-cz0,TM('brick',0.3,cz1-cz0,1.2));
   box((cx0+cx1)/2,Y1,cz1+0.15,cx1-cx0,4.3,0.3,0x5d6166);
   sign('CINEMA 1-5',-52,Y1+3.0,cz1-0.02,Math.PI,5,0.8,'#5d6166','#ffffff');
+  for(const [z,k] of [[40.2,0],[43.6,1]])poster('movie',k,cx0+0.17,Y1+1.75,z,Math.PI/2,1.3);
+  for(const [z,k] of [[34.4,2],[37.8,3]])poster('movie',k,cx1-0.17,Y1+1.75,z,-Math.PI/2,1.3);
+  for(const [x,k] of [[-63,4],[-40.5,0]])poster('movie',k,x,Y1+1.8,mz1-0.04,Math.PI,1.3);
+  deco(cx0+1.2,Y1+1.1,29.2,0.7,0.9,0.6,GLASS2);deco(cx0+1.2,Y1+1.12,29.2,0.6,0.45,0.5,0xffd54f);deco(cx0+1.2,Y1+2.0,29.2,0.76,0.12,0.66,0xc62828);
+  sign('POPCORN',cx0+1.56,Y1+1.75,29.2,Math.PI/2,0.6,0.16,'#c62828','#fff');
   for(const x of [-60,-44])deco(x,Y1,cz1-0.05,2.4,2.6,0.08,0x111111);
   box(cx0+1.2,Y1,32,2,1.1,10,0x7a2230);deco(cx0+0.3,Y1+1.1,32,0.3,1.6,10,0x2b2b2b);
   sign('CGV  매점',cx0+0.25,Y1+3.2,32,Math.PI/2,4,0.7,'#111111','#ff2a3d');
